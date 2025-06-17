@@ -1,0 +1,5 @@
+platformId,platformUserId,username,displayName,followersCount,status,email,phone,country,primaryCategory
+1,test_import_001,testuser001,测试达人001,15000,POTENTIAL,test001@example.com,+86-13800138001,中国,美妆
+1,test_import_002,testuser002,测试达人002,25000,ACTIVE,test002@example.com,+86-13800138002,中国,时尚
+1,test_import_003,testuser003,测试达人003,8000,POTENTIAL,test003@example.com,+86-13800138003,中国,生活
+2,test_import_004,testuser004,测试达人004,50000,ACTIVE,test004@example.com,+86-13800138004,中国,科技 
