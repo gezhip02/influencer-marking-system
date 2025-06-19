@@ -4,339 +4,326 @@ import snowflake from '../src/lib/snowflake';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('📝 开始创建种子数据...');
+  console.log('开始执行数据库种子数据初始化...');
 
-  // 清理现有数据（软删除模式）
-  await prisma.influencerTag.updateMany({ data: { status: 0 } });
-  await prisma.fulfillmentRecordTag.updateMany({ data: { status: 0 } });
-  await prisma.fulfillmentRecord.updateMany({ data: { status: 0 } });
-  await prisma.cooperationProduct.updateMany({ data: { status: 0 } });
-  await prisma.communicationLog.updateMany({ data: { status: 0 } });
-  await prisma.influencer.updateMany({ data: { status: 0 } });
-  await prisma.tag.updateMany({ data: { status: 0 } });
-  await prisma.platform.updateMany({ data: { status: 0 } });
-  await prisma.user.updateMany({ data: { status: 0 } });
-
-  const now = Math.floor(Date.now() / 1000);
-
-  // 1. 创建用户
-  console.log('👥 创建用户...');
-  const users = await Promise.all([
-    prisma.user.create({
-      data: {
-        id: snowflake.nextId(),
-        name: '系统管理员',
-        email: 'admin@example.com',
-        username: 'admin',
-        displayName: '管理员',
-        role: 'ADMIN',
-        department: '技术部',
-        status: 1,
-        preferences: JSON.stringify({ theme: 'light', language: 'zh-CN' }),
-        timezone: 'Asia/Shanghai',
-        language: 'zh-CN',
-        loginCount: 0,
-        createdAt: now,
-        updatedAt: now
-      }
-    }),
-    prisma.user.create({
-      data: {
-        id: snowflake.nextId(),
-        name: '运营专员',
-        email: 'operator@example.com',
-        username: 'operator',
-        displayName: '小王',
-        role: 'USER',
-        department: '运营部',
-        status: 1,
-        preferences: JSON.stringify({ theme: 'light', language: 'zh-CN' }),
-        timezone: 'Asia/Shanghai',
-        language: 'zh-CN',
-        loginCount: 5,
-        createdAt: now,
-        updatedAt: now
-      }
-    })
-  ]);
-
-  // 2. 创建平台
-  console.log('🚀 创建平台...');
-  const platforms = await Promise.all([
-    prisma.platform.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'tiktok',
-        displayName: 'TikTok',
-        apiEndpoint: 'https://api.tiktok.com',
-        apiConfig: JSON.stringify({ apiKey: 'placeholder', version: 'v1.0' }),
-        status: 1,
-        createdAt: now,
-        updatedAt: now
-      }
-    }),
-    prisma.platform.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'instagram',
-        displayName: 'Instagram',
-        apiEndpoint: 'https://api.instagram.com',
-        apiConfig: JSON.stringify({ apiKey: 'placeholder', version: 'v2.0' }),
-        status: 1,
-        createdAt: now,
-        updatedAt: now
-      }
-    }),
-    prisma.platform.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'youtube',
-        displayName: 'YouTube',
-        apiEndpoint: 'https://api.youtube.com',
-        apiConfig: JSON.stringify({ apiKey: 'placeholder', version: 'v3.0' }),
-        status: 1,
-        createdAt: now,
-        updatedAt: now
-      }
-    })
-  ]);
-
-  // 3. 创建标签
-  console.log('🏷️ 创建标签...');
-  const tags = await Promise.all([
-    prisma.tag.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'beauty',
-        displayName: '美妆',
-        description: '美妆相关内容',
-        category: 'CONTENT',
-        color: '#FF69B4',
-        icon: '💄',
-        status: 1,
-        sortOrder: 1,
-        isSystem: true,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: users[0].id
-      }
-    }),
-    prisma.tag.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'tech',
-        displayName: '科技',
-        description: '科技数码内容',
-        category: 'CONTENT',
-        color: '#4169E1',
-        icon: '📱',
-        status: 1,
-        sortOrder: 2,
-        isSystem: true,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: users[0].id
-      }
-    }),
-    prisma.tag.create({
-      data: {
-        id: snowflake.nextId(),
-        name: 'high-quality',
-        displayName: '高质量',
-        description: '高质量达人',
-        category: 'QUALITY',
-        color: '#FFD700',
-        icon: '⭐',
-        status: 1,
-        sortOrder: 10,
-        isSystem: true,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // 4. 验证平台存在并创建达人
-  console.log('👤 创建达人...');
-  const validPlatforms = await prisma.platform.findMany({
-    where: { status: 1 },
-    select: { id: true }
-  });
+  // 清理现有数据（如果需要）
+  console.log('清理现有数据...');
   
-  if (validPlatforms.length === 0) {
-    throw new Error('没有可用的平台，无法创建达人');
+  try {
+    // 1. 创建默认用户
+    console.log('创建默认用户...');
+    const defaultUser = await prisma.user.upsert({
+      where: { email: 'admin@example.com' },
+      update: {},
+      create: {
+        id: snowflake.nextId(),
+        email: 'admin@example.com',
+        name: '系统管理员',
+        username: 'admin',
+        displayName: '系统管理员',
+        role: 'ADMIN',
+        department: 'IT',
+        status: 1,
+        language: 'zh-CN',
+        createdAt: Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
+      },
+    });
+    console.log(`✅ 默认用户创建完成: ${defaultUser.email}`);
+
+    // 2. 创建默认平台
+    console.log('创建默认平台...');
+    const platforms = [
+      { name: 'tiktok', displayName: 'TikTok' },
+      { name: 'instagram', displayName: 'Instagram' },
+      { name: 'youtube', displayName: 'YouTube' },
+      { name: 'facebook', displayName: 'Facebook' },
+      { name: 'twitter', displayName: 'Twitter' },
+    ];
+
+    for (const platform of platforms) {
+      await prisma.platform.upsert({
+        where: { name: platform.name },
+        update: {},
+        create: {
+          id: snowflake.nextId(),
+          name: platform.name,
+          displayName: platform.displayName,
+          status: 1,
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+        },
+      });
+    }
+    console.log(`✅ 默认平台创建完成: ${platforms.length} 个平台`);
+
+    // 3. 创建默认标签
+    console.log('创建默认标签...');
+    const tags = [
+      { name: 'fashion', displayName: '时尚', category: 'CONTENT', color: '#FF6B6B' },
+      { name: 'beauty', displayName: '美妆', category: 'CONTENT', color: '#4ECDC4' },
+      { name: 'lifestyle', displayName: '生活方式', category: 'CONTENT', color: '#45B7D1' },
+      { name: 'technology', displayName: '科技', category: 'CONTENT', color: '#96CEB4' },
+      { name: 'food', displayName: '美食', category: 'CONTENT', color: '#FFEAA7' },
+    ];
+
+    for (const tag of tags) {
+      await prisma.tag.upsert({
+        where: { name: tag.name },
+        update: {},
+        create: {
+          id: snowflake.nextId(),
+          name: tag.name,
+          displayName: tag.displayName,
+          category: tag.category,
+          color: tag.color,
+          status: 1,
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+          createdBy: defaultUser.id,
+        },
+      });
+    }
+    console.log(`✅ 默认标签创建完成: ${tags.length} 个标签`);
+
+    // 4. 创建履约方案数据（7种固定方案）
+    console.log('创建履约方案数据...');
+    const fulfillmentPlans = [
+      {
+        id: 1n,
+        planCode: 'SELF_VIDEO_SAMPLE',
+        planName: '达人自制短视频寄样品',
+        requiresSample: true,
+        contentType: 'video',
+        isInfluencerMade: true,
+        initialStatus: 'pending_sample',
+        description: '达人自制短视频内容，需要寄送样品'
+      },
+      {
+        id: 2n,
+        planCode: 'SELF_VIDEO_NO_SAMPLE',
+        planName: '达人自制短视频不寄样品',
+        requiresSample: false,
+        contentType: 'video',
+        isInfluencerMade: true,
+        initialStatus: 'content_creation',
+        description: '达人自制短视频内容，不需要寄送样品'
+      },
+      {
+        id: 3n,
+        planCode: 'LIVE_SAMPLE',
+        planName: '直播寄样品',
+        requiresSample: true,
+        contentType: 'live',
+        isInfluencerMade: true,
+        initialStatus: 'pending_sample',
+        description: '直播带货形式，需要寄送样品'
+      },
+      {
+        id: 4n,
+        planCode: 'LIVE_NO_SAMPLE',
+        planName: '直播不寄样品',
+        requiresSample: false,
+        contentType: 'live',
+        isInfluencerMade: true,
+        initialStatus: 'content_creation',
+        description: '直播带货形式，不需要寄送样品'
+      },
+      {
+        id: 5n,
+        planCode: 'COMBO_SAMPLE',
+        planName: '达人自制短视频+直播寄样品',
+        requiresSample: true,
+        contentType: 'video_live',
+        isInfluencerMade: true,
+        initialStatus: 'pending_sample',
+        description: '短视频+直播组合形式，需要寄送样品'
+      },
+      {
+        id: 6n,
+        planCode: 'COMBO_NO_SAMPLE',
+        planName: '达人自制短视频+直播不寄样品',
+        requiresSample: false,
+        contentType: 'video_live',
+        isInfluencerMade: true,
+        initialStatus: 'content_creation',
+        description: '短视频+直播组合形式，不需要寄送样品'
+      },
+      {
+        id: 7n,
+        planCode: 'MERCHANT_VIDEO',
+        planName: '商家提供短视频不寄样品',
+        requiresSample: false,
+        contentType: 'video',
+        isInfluencerMade: false,
+        initialStatus: 'content_creation',
+        description: '商家提供短视频素材，达人发布，不需要寄送样品'
+      }
+    ];
+
+    for (const plan of fulfillmentPlans) {
+      await prisma.fulfillmentPlan.upsert({
+        where: { planCode: plan.planCode },
+        update: {},
+        create: {
+          id: plan.id,
+          planCode: plan.planCode,
+          planName: plan.planName,
+          requiresSample: plan.requiresSample,
+          contentType: plan.contentType,
+          isInfluencerMade: plan.isInfluencerMade,
+          initialStatus: plan.initialStatus,
+          description: plan.description,
+          status: 1,
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+        },
+      });
+    }
+    console.log(`✅ 履约方案创建完成: ${fulfillmentPlans.length} 个方案`);
+
+    // 5. 创建时效配置数据
+    console.log('创建时效配置数据...');
+    const slaConfigs = [
+      // 寄样流程的时效配置（方案1、3、5）
+      { planId: 1n, fromStatus: 'pending_sample', toStatus: 'sample_sent', durationHours: 24, description: '24小时内安排寄样' },
+      { planId: 1n, fromStatus: 'sample_sent', toStatus: 'in_transit', durationHours: 24, description: '24小时内更新物流状态' },
+      { planId: 1n, fromStatus: 'in_transit', toStatus: 'delivered', durationHours: 120, description: '5天内送达签收' },
+      { planId: 1n, fromStatus: 'delivered', toStatus: 'content_creation', durationHours: 24, description: '24小时内发送制作指南' },
+      { planId: 1n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 1n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      { planId: 3n, fromStatus: 'pending_sample', toStatus: 'sample_sent', durationHours: 24, description: '24小时内安排寄样' },
+      { planId: 3n, fromStatus: 'sample_sent', toStatus: 'in_transit', durationHours: 24, description: '24小时内更新物流状态' },
+      { planId: 3n, fromStatus: 'in_transit', toStatus: 'delivered', durationHours: 120, description: '5天内送达签收' },
+      { planId: 3n, fromStatus: 'delivered', toStatus: 'content_creation', durationHours: 24, description: '24小时内发送制作指南' },
+      { planId: 3n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 3n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      { planId: 5n, fromStatus: 'pending_sample', toStatus: 'sample_sent', durationHours: 24, description: '24小时内安排寄样' },
+      { planId: 5n, fromStatus: 'sample_sent', toStatus: 'in_transit', durationHours: 24, description: '24小时内更新物流状态' },
+      { planId: 5n, fromStatus: 'in_transit', toStatus: 'delivered', durationHours: 120, description: '5天内送达签收' },
+      { planId: 5n, fromStatus: 'delivered', toStatus: 'content_creation', durationHours: 24, description: '24小时内发送制作指南' },
+      { planId: 5n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 5n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      // 不寄样流程的时效配置（方案2、4、6、7）
+      { planId: 2n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 2n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      { planId: 4n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 4n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      { planId: 6n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 6n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' },
+
+      { planId: 7n, fromStatus: 'content_creation', toStatus: 'content_published', durationHours: 168, description: '7天内完成制作发布' },
+      { planId: 7n, fromStatus: 'content_published', toStatus: 'sales_conversion', durationHours: 168, description: '7天内完成转化分析' }
+    ];
+
+    for (let i = 0; i < slaConfigs.length; i++) {
+      const config = slaConfigs[i];
+      await prisma.fulfillmentSLA.upsert({
+        where: { 
+          planId_fromStatus_toStatus: {
+            planId: config.planId,
+            fromStatus: config.fromStatus,
+            toStatus: config.toStatus
+          }
+        },
+        update: {},
+        create: {
+          id: snowflake.nextId(),
+          planId: config.planId,
+          fromStatus: config.fromStatus,
+          toStatus: config.toStatus,
+          durationHours: config.durationHours,
+          description: config.description,
+          status: 1,
+          createdAt: Math.floor(Date.now() / 1000),
+        },
+      });
+    }
+    console.log(`✅ 时效配置创建完成: ${slaConfigs.length} 个配置`);
+
+    // 6. 创建示例产品数据
+    console.log('创建示例产品数据...');
+    const sampleProducts = [
+      {
+        name: '春季时尚T恤',
+        description: '2025年春季新款时尚T恤，舒适透气',
+        brand: 'FashionBrand',
+        category: 'clothing',
+        price: 29.99,
+        currency: 'USD',
+        country: 'US',
+        skuSeries: 'SKU_2025_CLOTHING_TSHIRT_001'
+      },
+      {
+        name: '智能运动手表',
+        description: '多功能智能运动手表，健康监测',
+        brand: 'TechBrand',
+        category: 'electronics',
+        price: 199.99,
+        currency: 'USD',
+        country: 'US',
+        skuSeries: 'SKU_2025_ELECTRONICS_WATCH_001'
+      },
+      {
+        name: '天然护肤面霜',
+        description: '纯天然成分护肤面霜，深层滋润',
+        brand: 'BeautyBrand',
+        category: 'beauty',
+        price: 59.99,
+        currency: 'USD',
+        country: 'UK',
+        skuSeries: 'SKU_2025_BEAUTY_CREAM_001'
+      }
+    ];
+
+    for (const product of sampleProducts) {
+      await prisma.cooperationProduct.upsert({
+        where: { 
+          country_skuSeries: {
+            country: product.country,
+            skuSeries: product.skuSeries
+          }
+        },
+        update: {},
+        create: {
+          id: snowflake.nextId(),
+          name: product.name,
+          description: product.description,
+          brand: product.brand,
+          category: product.category,
+          price: product.price,
+          currency: product.currency,
+          country: product.country,
+          skuSeries: product.skuSeries,
+          status: 1,
+          priority: 'medium',
+          createdAt: Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+          createdBy: defaultUser.id,
+        },
+      });
+    }
+    console.log(`✅ 示例产品创建完成: ${sampleProducts.length} 个产品`);
+
+    console.log('🎉 数据库种子数据初始化完成!');
+
+  } catch (error) {
+    console.error('❌ 种子数据初始化失败:', error);
+    throw error;
   }
-
-  const influencers = await Promise.all([
-    prisma.influencer.create({
-      data: {
-        id: snowflake.nextId(),
-        platformId: platforms[0].id, // TikTok
-        platformUserId: 'beauty_guru_001',
-        username: 'beauty_guru_lily',
-        displayName: '美妆达人Lily',
-        avatarUrl: 'https://example.com/avatar1.jpg',
-        bio: '专业美妆博主，分享最新化妆技巧和产品测评',
-        email: 'lily@example.com',
-        phone: '+86 138****1234',
-        country: 'CN',
-        region: 'Beijing',
-        city: '北京',
-        timezone: 'Asia/Shanghai',
-        gender: 'female',
-        ageRange: '25-30',
-        language: 'zh-CN',
-        followersCount: 150000,
-        followingCount: 500,
-        totalLikes: 2500000,
-        totalVideos: 280,
-        avgVideoViews: 85000,
-        engagementRate: 8.5,
-        primaryCategory: '美妆',
-        contentStyle: JSON.stringify(['教程类', '测评类', '日常分享']),
-        contentLanguage: 'zh-CN',
-        tendencyCategory: JSON.stringify(['护肤', '彩妆', '美容仪器']),
-        qualityScore: 9.2,
-        riskLevel: 'low',
-        dataSource: 'api',
-        lastDataSync: now,
-        dataAccuracy: 95.5,
-        cooperateStatus: 1,
-        hasSign: 1,
-        status: 1,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: users[0].id,
-        notes: '高质量美妆达人，合作表现优秀'
-      }
-    }),
-    prisma.influencer.create({
-      data: {
-        id: snowflake.nextId(),
-        platformId: platforms[2].id, // YouTube
-        platformUserId: 'tech_reviewer_alex',
-        username: 'tech_reviewer_alex',
-        displayName: '科技评测Alex',
-        avatarUrl: 'https://example.com/avatar3.jpg',
-        bio: '专业科技产品评测，客观真实的使用体验分享',
-        email: 'alex@example.com',
-        phone: '+86 137****9999',
-        country: 'CN',
-        region: 'Guangdong',
-        city: '深圳',
-        timezone: 'Asia/Shanghai',
-        gender: 'male',
-        ageRange: '30-35',
-        language: 'zh-CN',
-        followersCount: 220000,
-        followingCount: 200,
-        totalLikes: 3800000,
-        totalVideos: 95,
-        avgVideoViews: 125000,
-        engagementRate: 12.3,
-        primaryCategory: '科技',
-        contentStyle: JSON.stringify(['深度评测', '对比测试', '使用技巧']),
-        contentLanguage: 'zh-CN',
-        tendencyCategory: JSON.stringify(['手机', '电脑', '智能家居']),
-        qualityScore: 9.8,
-        riskLevel: 'low',
-        dataSource: 'api',
-        lastDataSync: now,
-        dataAccuracy: 98.0,
-        cooperateStatus: 1,
-        hasSign: 1,
-        status: 1,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: users[0].id,
-        notes: '顶级科技达人，影响力极强'
-      }
-    })
-  ]);
-
-  // 5. 创建达人标签关联
-  console.log('🔗 创建达人标签关联...');
-  const influencerTags = await Promise.all([
-    prisma.influencerTag.create({
-      data: {
-        id: snowflake.nextId(),
-        influencerId: influencers[0].id,
-        tagId: tags[0].id, // 美妆
-        confidence: 0.95,
-        source: 'manual',
-        status: 1,
-        createdAt: now,
-        createdBy: users[0].id
-      }
-    }),
-    prisma.influencerTag.create({
-      data: {
-        id: snowflake.nextId(),
-        influencerId: influencers[0].id,
-        tagId: tags[2].id, // 高质量
-        confidence: 0.92,
-        source: 'system',
-        status: 1,
-        createdAt: now,
-        createdBy: users[0].id
-      }
-    }),
-    prisma.influencerTag.create({
-      data: {
-        id: snowflake.nextId(),
-        influencerId: influencers[1].id,
-        tagId: tags[1].id, // 科技
-        confidence: 0.98,
-        source: 'manual',
-        status: 1,
-        createdAt: now,
-        createdBy: users[0].id
-      }
-    }),
-    prisma.influencerTag.create({
-      data: {
-        id: snowflake.nextId(),
-        influencerId: influencers[1].id,
-        tagId: tags[2].id, // 高质量
-        confidence: 0.98,
-        source: 'system',
-        status: 1,
-        createdAt: now,
-        createdBy: users[0].id
-      }
-    })
-  ]);
-
-  // 统计创建的数据
-  const stats = {
-    users: users.length,
-    platforms: platforms.length,
-    tags: tags.length,
-    influencers: influencers.length,
-    influencerTags: influencerTags.length
-  };
-
-  console.log('\n✅ 种子数据创建完成！');
-  console.log('📊 数据统计:');
-  console.log(`   👥 users: ${stats.users}`);
-  console.log(`   🚀 platforms: ${stats.platforms}`);
-  console.log(`   🏷️ tags: ${stats.tags}`);
-  console.log(`   👤 influencers: ${stats.influencers}`);
-  console.log(`   🔗 influencerTags: ${stats.influencerTags}`);
-
-  console.log('\n🎯 重要提醒：');
-  console.log('• 数据库已重构为无外键约束模式');
-  console.log('• 数据完整性由应用层代码保证');
-  console.log('• 支持软删除，所有记录通过status字段控制');
-  console.log('• 请确保在操作数据时进行适当的验证');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ 种子数据创建失败:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
   }); 

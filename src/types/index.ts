@@ -187,82 +187,132 @@ export interface FulfillmentRecordTag extends BaseEntity {
 
 // 合作产品
 export interface CooperationProduct extends BaseEntity {
+  id: string;
   name: string;
-  description?: string | null;
-  brand?: string | null;
-  category?: string | null;
-  price?: number | null;
-  currency?: string | null;
-  
-  // 合作信息
-  budget?: number | null;
-  targetAudience?: string | null;
-  contentRequirements?: string | null;
+  description?: string;
+  brand?: string;
+  category?: string;
+  price?: number;
+  currency?: string;
+  budget?: number;
+  targetAudience?: string;
+  contentRequirements?: string;
   deliverables?: any;
   kpis?: any;
+  startDate?: number;
+  endDate?: number;
+  priority?: string;
   
-  // 时间安排
-  startDate?: number | null; // 秒级时间戳
-  endDate?: number | null; // 秒级时间戳
+  // 新增字段
+  country: string;
+  skuSeries: string;
   
-  // 系统字段
-  status: number; // 0=无效, 1=有效
-  priority?: string | null;
-  createdBy?: string | null;
-  
-  // 关联数据
-  creator?: User | null;
-  fulfillmentRecords?: FulfillmentRecord[];
+  status: number;
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
 }
 
 // 履约记录
 export interface FulfillmentRecord extends BaseEntity {
+  id: string;
   influencerId: string;
   productId: string;
-  productName: string;
-  cooperationType: string;
-  fulfillmentDesc?: string | null;
-  fulfillmentStatus?: string | null;
-  needSample?: number | null; // 0=不需要, 1=需要
+  planId: string;
+  ownerId: string;
   
-  // 达人合作详情
-  cooperateStatus?: number | null; // 1=待合作, 2=已合作, 3=终止合作
-  hasSign?: number | null; // 0=未签约, 1=签约中, 2=已签约
-  actualFulfillTime?: number | null; // 秒级时间戳
-  correspondScore?: number | null;
-  fulfillDays?: number | null;
+  // 基础信息
+  title?: string;
+  description?: string;
+  priority: string;
   
-  // 时间节点
-  sampleDeliveryTime?: number | null; // 秒级时间戳
-  firstTouchTime?: number | null; // 秒级时间戳
-  contactDate?: number | null; // 秒级时间戳
+  // 当前状态信息
+  currentStatus: string;
+  recordStatus: string;
+  currentStageStartTime: number;
+  currentStageDeadline?: number;
+  isCurrentStageOverdue: boolean;
   
-  // 内容描述
-  videoStyle?: string | null;
-  videoStyleForUs?: string | null;
-  contentScore?: number | null;
-  orderScore?: number | null;
-  adsRoi?: number | null;
-  videoQuantityDesc?: string | null;
-  liveQuantityDesc?: string | null;
-  
-  // 责任人
-  ownerId?: string | null;
-  ownerName?: string | null;
-  
-  // 标签和备注
-  fulfillRemark?: string | null;
+  // 业务数据
+  trackingNumber?: string;
+  sampleDeliveryTime?: number;
+  contentGuidelines?: string;
+  videoUrl?: string;
+  videoTitle?: string;
+  publishTime?: number;
+  adsRoi?: number;
+  conversionTags?: any;
   
   // 系统字段
-  status: number; // 0=无效, 1=有效
-  createdBy?: string | null;
+  status: number;
+  createdAt?: number;
+  updatedAt?: number;
+  createdBy?: string;
+  updatedBy?: string;
   
-  // 关联数据
+  // 关联数据（可选）
   influencer?: Influencer;
   product?: CooperationProduct;
-  creator?: User | null;
-  communicationLogs?: CommunicationLog[];
-  fulfillmentTags?: FulfillmentRecordTag[];
+  plan?: FulfillmentPlan;
+  owner?: User;
+}
+
+// 履约方案相关类型
+export interface FulfillmentPlan {
+  id: string;
+  planCode: string;
+  planName: string;
+  requiresSample: boolean;
+  contentType: string;
+  isInfluencerMade: boolean;
+  initialStatus: string;
+  description?: string;
+  status: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+// 时效配置相关类型
+export interface FulfillmentSLA {
+  id: string;
+  planId: string;
+  fromStatus: string;
+  toStatus: string;
+  durationHours: number;
+  description?: string;
+  status: number;
+  createdAt?: number;
+}
+
+// 履约状态日志相关类型
+export interface FulfillmentStatusLog {
+  id: string;
+  fulfillmentRecordId: string;
+  fromStatus?: string;
+  toStatus: string;
+  
+  // 时效数据
+  stageStartTime: number;
+  stageEndTime: number;
+  stageDeadline?: number;
+  plannedDurationHours?: number;
+  actualDurationHours?: number;
+  isOverdue: boolean;
+  overdueHours?: number;
+  
+  // 下一阶段预设
+  nextStageDeadline?: number;
+  
+  // 操作信息
+  changeReason?: string;
+  remarks?: string;
+  operatorId?: string;
+  
+  status: number;
+  createdAt?: number;
+  
+  // 关联数据（可选）
+  operator?: User;
 }
 
 // 沟通记录
@@ -608,4 +658,100 @@ export interface PaginationParams {
   limit: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+}
+
+// 履约单创建请求类型
+export interface CreateFulfillmentRecordRequest {
+  influencerId: string;
+  productId: string;
+  planId: string;
+  ownerId: string;
+  title?: string;
+  description?: string;
+  priority?: string;
+  videoTitle?: string;
+}
+
+// 履约单更新请求类型
+export interface UpdateFulfillmentRecordRequest {
+  title?: string;
+  description?: string;
+  priority?: string;
+  trackingNumber?: string;
+  contentGuidelines?: string;
+  videoUrl?: string;
+  videoTitle?: string;
+  adsRoi?: number;
+  conversionTags?: any;
+}
+
+// 履约单列表查询参数
+export interface FulfillmentRecordQuery {
+  page?: number;
+  limit?: number;
+  influencerId?: string;
+  productId?: string;
+  planId?: string;
+  ownerId?: string;
+  currentStatus?: string;
+  recordStatus?: string;
+  priority?: string;
+  isOverdue?: boolean;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+// 履约单统计数据类型
+export interface FulfillmentStats {
+  total: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  overdue: number;
+  completedThisMonth: number;
+  avgCompletionDays: number;
+}
+
+// 状态更新请求类型
+export interface UpdateStatusRequest {
+  newStatus: string;
+  changeReason?: string;
+  remarks?: string;
+  additionalData?: {
+    trackingNumber?: string;
+    sampleDeliveryTime?: number;
+    contentGuidelines?: string;
+    videoUrl?: string;
+    publishTime?: number;
+    adsRoi?: number;
+    conversionTags?: any;
+  };
+}
+
+// API响应类型
+export interface FulfillmentRecordListResponse {
+  success: boolean;
+  data: FulfillmentRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+  stats?: FulfillmentStats;
+}
+
+export interface FulfillmentRecordResponse {
+  success: boolean;
+  data: FulfillmentRecord;
+}
+
+export interface FulfillmentPlansResponse {
+  success: boolean;
+  data: FulfillmentPlan[];
+}
+
+export interface FulfillmentSLAResponse {
+  success: boolean;
+  data: FulfillmentSLA[];
 } 

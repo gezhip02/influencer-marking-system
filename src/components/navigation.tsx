@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Users, Tag, BarChart3, Settings, LogOut, User, ChevronDown } from 'lucide-react';
+import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/auth-context';
 import { useState, useRef, useEffect } from 'react';
 
 const navigation = [
   { name: '首页', href: '/', icon: Home },
+  { name: '履约管理', href: '/fulfillment', icon: ClipboardDocumentListIcon },
   { name: '达人管理', href: '/influencers', icon: Users },
   { name: '标签管理', href: '/tags', icon: Tag },
   { name: '数据统计', href: '/analytics', icon: BarChart3 },

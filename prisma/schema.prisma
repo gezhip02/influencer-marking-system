@@ -230,23 +230,6 @@ model InfluencerTag {
   @@map("influencer_tags")
 }
 
-model FulfillmentRecordTag {
-  id                    BigInt            @id
-  fulfillmentRecordId   BigInt            // 关联到FulfillmentRecord.id，但没有外键约束
-  tagId                 BigInt            // 关联到Tag.id，但没有外键约束
-  confidence            Float?            @default(1)
-  source                String?           @default("manual")
-  status                Int               @default(1) // 0-无效，1-有效
-  createdAt             Int?
-  createdBy             BigInt?           // 关联到User.id，但没有外键约束
-
-  @@unique([fulfillmentRecordId, tagId])
-  @@index([fulfillmentRecordId])
-  @@index([tagId])
-  @@index([status])
-  @@map("fulfillment_record_tags")
-}
-
 model CooperationProduct {
   id                  BigInt              @id
   name                String
@@ -262,58 +245,164 @@ model CooperationProduct {
   kpis                Json?
   startDate           Int?
   endDate             Int?
-  status              Int                 @default(1) // 0-无效，1-有效
   priority            String?             @default("medium")
+  
+  // 新增字段：国家和SKU序列
+  country             String              // 国家/地区
+  skuSeries           String              // SKU序列号，如：SKU_2025_CLOTHING_MEN_001
+  
+  status              Int                 @default(1) // 0-无效，1-有效
   createdAt           Int?
   updatedAt           Int?
   createdBy           BigInt?             // 关联到User.id，但没有外键约束
 
+  @@unique([country, skuSeries]) // 国家和SKU组合唯一
   @@index([status])
   @@index([startDate])
   @@index([category])
+  @@index([country])
   @@index([createdBy])
   @@map("cooperation_products")
 }
 
-model FulfillmentRecord {
-  id                 BigInt                  @id
-  influencerId       BigInt                  // 关联到Influencer.id，但没有外键约束
-  productId          BigInt                  // 关联到CooperationProduct.id，但没有外键约束
-  productName        String
-  cooperationType    String
-  fulfillmentDesc    String?
-  fulfillmentStatus  String?
-  needSample         Int?
-  cooperateStatus    Int?
-  hasSign            Int?
-  actualFulfillTime  Int?
-  correspondScore    Float?
-  fulfillDays        Int?
-  sampleDeliveryTime Int?
-  firstTouchTime     Int?
-  contactDate        Int?
-  videoStyle         String?
-  videoStyleForUs    String?
-  contentScore       Float?
-  orderScore         Float?
-  adsRoi             Float?
-  videoQuantityDesc  String?
-  liveQuantityDesc   String?
-  ownerId            BigInt?
-  ownerName          String?
-  fulfillRemark      String?
-  status             Int                     @default(1) // 0-无效，1-有效
-  createdAt          Int?
-  updatedAt          Int?
-  createdBy          BigInt?                 // 关联到User.id，但没有外键约束
+model FulfillmentPlan {
+  id                BigInt       @id
+  planCode          String       @unique // 方案代码
+  planName          String       // 方案名称
+  requiresSample    Boolean      // 是否需要寄样
+  contentType       String       // 内容类型：video, live, video_live
+  isInfluencerMade  Boolean      // 是否达人自制
+  initialStatus     String       // 初始状态
+  description       String?      // 方案描述
+  status            Int          @default(1) // 0-无效，1-有效
+  createdAt         Int?
+  updatedAt         Int?
 
+  @@index([status])
+  @@index([requiresSample])
+  @@index([contentType])
+  @@map("fulfillment_plans")
+}
+
+model FulfillmentSLA {
+  id               BigInt       @id
+  planId           BigInt       // 关联到FulfillmentPlan.id，但没有外键约束
+  fromStatus       String       // 当前状态
+  toStatus         String       // 目标状态
+  durationHours    Int          // 标准耗时（小时）
+  description      String?      // 时效说明
+  status           Int          @default(1) // 0-无效，1-有效
+  createdAt        Int?
+
+  @@unique([planId, fromStatus, toStatus])
+  @@index([planId])
+  @@index([fromStatus])
+  @@index([status])
+  @@map("fulfillment_slas")
+}
+
+model FulfillmentRecord {
+  id                       BigInt       @id
+  influencerId             BigInt       // 关联到Influencer.id，但没有外键约束
+  productId                BigInt       // 关联到CooperationProduct.id，但没有外键约束
+  planId                   BigInt       // 关联到FulfillmentPlan.id，但没有外键约束
+  ownerId                  BigInt       // 负责人ID，关联到User.id，但没有外键约束
+  
+  // 基础信息
+  title                    String?      // 履约单标题
+  description              String?      @db.Text // 任务描述
+  priority                 String       @default("medium") // 优先级：low, medium, high, urgent
+  
+  // 当前状态信息
+  currentStatus            String       // 当前履约状态
+  recordStatus             String       @default("active") // 履约单业务状态：active, completed, cancelled
+  currentStageStartTime    Int          // 当前阶段开始时间（时间戳）
+  currentStageDeadline     Int?         // 当前阶段截止时间（时间戳）
+  isCurrentStageOverdue    Boolean      @default(false) // 当前阶段是否逾期
+  
+  // 业务数据（单个内容）
+  trackingNumber           String?      // 物流单号
+  sampleDeliveryTime       Int?         // 样品签收时间（时间戳）
+  contentGuidelines        String?      @db.Text // 制作指南
+  videoUrl                 String?      // 单个视频/直播链接
+  videoTitle               String?      // 视频/直播标题
+  publishTime              Int?         // 发布时间（时间戳）
+  adsRoi                   Float?       // 广告ROI
+  conversionTags           Json?        // 转化标签
+  
+  // 系统字段
+  status                   Int          @default(1) // 数据有效性：1-有效，0-无效
+  createdAt                Int?
+  updatedAt                Int?
+  createdBy                BigInt?      // 关联到User.id，但没有外键约束
+  updatedBy                BigInt?
+
+  @@unique([influencerId, productId, planId, videoTitle]) // 达人+产品+方案+内容标题唯一
   @@index([influencerId])
   @@index([productId])
+  @@index([planId])
+  @@index([ownerId])
+  @@index([currentStatus])
+  @@index([recordStatus])
+  @@index([isCurrentStageOverdue])
+  @@index([currentStageDeadline])
+  @@index([priority])
   @@index([status])
-  @@index([contactDate])
-  @@index([fulfillmentStatus])
-  @@index([createdBy])
+  @@index([createdAt])
   @@map("fulfillment_records")
+}
+
+model FulfillmentStatusLog {
+  id                    BigInt       @id
+  fulfillmentRecordId   BigInt       // 关联到FulfillmentRecord.id，但没有外键约束
+  fromStatus            String?      // 原状态
+  toStatus              String       // 新状态
+  
+  // 时效数据
+  stageStartTime        Int          // 阶段开始时间（时间戳）
+  stageEndTime          Int          // 阶段结束时间（时间戳）
+  stageDeadline         Int?         // 阶段截止时间（时间戳）
+  plannedDurationHours  Int?         // 计划耗时（小时）
+  actualDurationHours   Int?         // 实际耗时（小时）
+  isOverdue             Boolean      @default(false) // 是否逾期
+  overdueHours          Int?         // 逾期小时数
+  
+  // 下一阶段预设
+  nextStageDeadline     Int?         // 下一阶段截止时间（时间戳）
+  
+  // 操作信息
+  changeReason          String?      @db.Text // 状态变更原因
+  remarks               String?      @db.Text // 备注说明
+  operatorId            BigInt?      // 操作人ID，关联到User.id，但没有外键约束
+  
+  status                Int          @default(1) // 数据有效性：1-有效，0-无效
+  createdAt             Int?
+
+  @@index([fulfillmentRecordId])
+  @@index([fromStatus])
+  @@index([toStatus])
+  @@index([isOverdue])
+  @@index([stageStartTime])
+  @@index([operatorId])
+  @@index([status])
+  @@map("fulfillment_status_logs")
+}
+
+model FulfillmentRecordTag {
+  id                    BigInt            @id
+  fulfillmentRecordId   BigInt            // 关联到FulfillmentRecord.id，但没有外键约束
+  tagId                 BigInt            // 关联到Tag.id，但没有外键约束
+  confidence            Float?            @default(1)
+  source                String?           @default("manual")
+  status                Int               @default(1) // 0-无效，1-有效
+  createdAt             Int?
+  createdBy             BigInt?           // 关联到User.id，但没有外键约束
+
+  @@unique([fulfillmentRecordId, tagId])
+  @@index([fulfillmentRecordId])
+  @@index([tagId])
+  @@index([status])
+  @@map("fulfillment_record_tags")
 }
 
 model CommunicationLog {

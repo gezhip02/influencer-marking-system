@@ -34,15 +34,7 @@ export async function POST(request: NextRequest) {
 
     // 查找用户
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-      include: {
-        accounts: {
-          where: {
-            provider: 'credentials',
-            type: 'credentials'
-          }
-        }
-      }
+      where: { email: email.toLowerCase() }
     });
 
     if (!user) {
@@ -53,15 +45,23 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查用户状态
-    if (user.userStatus !== 1) {
+    if (user.status !== 1) {
       return NextResponse.json(
         { error: '账户已被禁用，请联系管理员' },
         { status: 403 }
       );
     }
 
-    // 验证密码
-    const account = user.accounts[0];
+    // 查找用户账户信息
+    const account = await prisma.account.findFirst({
+      where: {
+        userId: user.id,
+        provider: 'credentials',
+        type: 'credentials',
+        status: 1
+      }
+    });
+
     if (!account || !account.access_token) {
       return NextResponse.json(
         { error: '账户信息异常，请联系管理员' },
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 验证密码
     const isPasswordValid = await bcrypt.compare(password, account.access_token);
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       role: user.role,
       department: user.department,
-      userStatus: user.userStatus,
+      status: user.status,
       timezone: user.timezone,
       language: user.language,
       lastLogin: currentTime,
