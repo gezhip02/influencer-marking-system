@@ -54,8 +54,8 @@ console.log('原始数据:', JSON.stringify(testData));
 // 模拟前端发送的数据
 const frontendData = {
   id: "193296151888269312",
-  baseCooperationFee: 1000,
-  cooperationCurrency: "USD"
+  // baseCooperationFee: 1000, // 字段已删除
+  // cooperationCurrency: "USD" // 字段已删除
 };
 
 console.log('前端数据:', JSON.stringify(frontendData));

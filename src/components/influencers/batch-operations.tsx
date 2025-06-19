@@ -1,7 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Download, Upload, Tag, Trash2, UserCheck, UserX, FileText, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Tag, 
+  Download, 
+  Upload, 
+  Trash2, 
+  Loader2, 
+  FileSpreadsheet, 
+  FileText,
+  AlertTriangle
+} from 'lucide-react';
 
 interface Platform {
   id: string;
@@ -24,7 +34,7 @@ interface Influencer {
   platform: Platform;
   followersCount: number;
   status: string;
-  tags: TagData[];
+  tags?: TagData[];
 }
 
 interface BatchOperationsProps {
@@ -34,7 +44,6 @@ interface BatchOperationsProps {
   onClose: () => void;
   onAddTags: (tagIds: string[]) => Promise<void>;
   onRemoveTags: (tagIds: string[]) => Promise<void>;
-  onUpdateStatus: (status: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onExport: (format: 'json' | 'csv') => Promise<void>;
   onImport: (file: File) => Promise<void>;
@@ -48,34 +57,28 @@ export default function BatchOperations({
   onClose,
   onAddTags,
   onRemoveTags,
-  onUpdateStatus,
   onDelete,
   onExport,
   onImport,
   loading
 }: BatchOperationsProps) {
-  const [activeTab, setActiveTab] = useState<'tags' | 'status' | 'export' | 'import' | 'delete'>('tags');
+  const [activeTab, setActiveTab] = useState<'tags' | 'export' | 'import' | 'delete'>('tags');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const selectedInfluencerData = influencers.filter(inf => selectedInfluencers.includes(inf.id));
-
-  // 获取选中达人的共同标签
+  
   const getCommonTags = () => {
     if (selectedInfluencerData.length === 0) return [];
     
-    const tagCounts = new Map<string, number>();
-    selectedInfluencerData.forEach(influencer => {
-      influencer.tags.forEach(tag => {
-        tagCounts.set(tag.id, (tagCounts.get(tag.id) || 0) + 1);
-      });
-    });
-
-    return Array.from(tagCounts.entries())
-      .filter(([_, count]) => count === selectedInfluencerData.length)
-      .map(([tagId]) => tagId);
+    const firstInfluencerTagIds = selectedInfluencerData[0]?.tags?.map(t => t.id) || [];
+    
+    return firstInfluencerTagIds.filter(tagId =>
+      selectedInfluencerData.every(influencer =>
+        influencer.tags?.some(tag => tag.id === tagId)
+      )
+    );
   };
 
   const commonTags = getCommonTags();
@@ -94,13 +97,6 @@ export default function BatchOperations({
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (selectedStatus) {
-      await onUpdateStatus(selectedStatus);
-      setSelectedStatus('');
-    }
-  };
-
   const handleFileImport = async () => {
     if (importFile) {
       await onImport(importFile);
@@ -111,26 +107,6 @@ export default function BatchOperations({
   const handleDelete = async () => {
     await onDelete();
     setShowDeleteConfirm(false);
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return '活跃';
-      case 'INACTIVE': return '不活跃';
-      case 'POTENTIAL': return '潜在';
-      case 'BLACKLISTED': return '黑名单';
-      default: return status;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'bg-green-100 text-green-800';
-      case 'INACTIVE': return 'bg-gray-100 text-gray-800';
-      case 'POTENTIAL': return 'bg-blue-100 text-blue-800';
-      case 'BLACKLISTED': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
   };
 
   return (
@@ -173,7 +149,6 @@ export default function BatchOperations({
         <div className="flex border-b">
           {[
             { key: 'tags', label: '标签管理', icon: Tag },
-            { key: 'status', label: '状态更新', icon: UserCheck },
             { key: 'export', label: '导出数据', icon: Download },
             { key: 'import', label: '导入数据', icon: Upload },
             { key: 'delete', label: '删除操作', icon: Trash2 }
@@ -301,38 +276,6 @@ export default function BatchOperations({
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* 状态更新 */}
-          {activeTab === 'status' && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-900">更新达人状态</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {['ACTIVE', 'INACTIVE', 'POTENTIAL', 'BLACKLISTED'].map(status => (
-                  <button
-                    key={status}
-                    onClick={() => setSelectedStatus(status)}
-                    className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                      selectedStatus === status
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status)}`}>
-                      {getStatusText(status)}
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={handleUpdateStatus}
-                disabled={loading || !selectedStatus}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-                更新状态为 {selectedStatus ? getStatusText(selectedStatus) : ''}
-              </button>
             </div>
           )}
 

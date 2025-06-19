@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // 构建查询条件
-    const where: any = {};
+    const where: any = {
+      status: 1 // 只查询有效数据
+    };
 
     if (search) {
       where.OR = [
@@ -29,11 +31,11 @@ export async function GET(request: NextRequest) {
       where.category = category;
     }
 
-    if (parentId !== null) {
-      if (parentId === '') {
-        where.parentId = null; // 查询顶级标签
+    if (parentId !== null && parentId !== undefined) {
+      if (parentId === 'null' || parentId === '') {
+        where.parentId = null;
       } else {
-        where.parentId = parentId;
+        where.parentId = BigInt(parentId);
       }
     }
 
@@ -42,35 +44,6 @@ export async function GET(request: NextRequest) {
       // 获取标签列表
       prisma.tag.findMany({
         where,
-        include: {
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          parent: {
-            select: {
-              id: true,
-              name: true,
-              displayName: true
-            }
-          },
-          children: {
-            select: {
-              id: true,
-              name: true,
-              displayName: true
-            }
-          },
-          _count: {
-            select: {
-              influencers: true,
-              children: true
-            }
-          }
-        },
         orderBy: [
           { sortOrder: 'asc' },
           { createdAt: 'desc' }
@@ -82,10 +55,11 @@ export async function GET(request: NextRequest) {
       prisma.tag.count({ where }),
       // 获取统计信息
       Promise.all([
-        prisma.tag.count(), // 总标签数
-        prisma.influencer.count(), // 总达人数
+        prisma.tag.count({ where: { status: 1 } }), // 总标签数
+        prisma.influencer.count({ where: { status: 1 } }), // 总达人数
         prisma.tag.groupBy({
           by: ['category'],
+          where: { status: 1 },
           _count: {
             category: true
           }
@@ -100,30 +74,33 @@ export async function GET(request: NextRequest) {
       categories: stats[2]
     };
 
-    // 处理标签数据，添加达人数量信息
-    const tagsWithInfluencerCount = tags.map(tag => ({
-      ...tag,
-      influencerCount: tag._count.influencers,
-      childrenCount: tag._count.children
-    }));
-
     // 序列化返回数据
     const result = serializePagination({
-      items: tagsWithInfluencerCount,
+      items: tags,
       total,
       page,
       limit
     });
 
     return NextResponse.json({
-      tags: result.items,
-      pagination: result.pagination,
+      success: true,
+      data: result.items,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        pages: result.pages
+      },
       stats: statsData
     });
   } catch (error) {
     console.error('Error fetching tags:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch tags', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        success: false,
+        error: 'Failed to fetch tags', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }
@@ -143,8 +120,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 检查名称是否已存在
-    const existingTag = await prisma.tag.findUnique({
-      where: { name }
+    const existingTag = await prisma.tag.findFirst({
+      where: { 
+        name,
+        status: 1
+      }
     });
 
     if (existingTag) {
@@ -168,45 +148,18 @@ export async function POST(request: NextRequest) {
         color: color || '#6B7280',
         icon,
         parentId: parentId ? BigInt(parentId) : null,
-        status: 'ACTIVE',
+        status: 1,
         isSystem: false,
         sortOrder: 0,
+        createdAt: Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
         createdBy: null // 暂时设置为null，待用户系统完善后修改
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true
-          }
-        },
-        _count: {
-          select: {
-            influencers: true,
-            children: true
-          }
-        }
       }
-    });
-
-    // 序列化返回数据
-    const serializedTag = serializeBigInt({
-      ...tag,
-      influencerCount: tag._count.influencers,
-      childrenCount: tag._count.children
     });
 
     return NextResponse.json({
       success: true,
-      tag: serializedTag
+      data: serializeBigInt(tag)
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating tag:', error);
@@ -231,8 +184,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // 检查标签是否存在
-    const existingTag = await prisma.tag.findUnique({
-      where: { id: BigInt(id) }
+    const existingTag = await prisma.tag.findFirst({
+      where: { 
+        id: BigInt(id),
+        status: 1
+      }
     });
 
     if (!existingTag) {
@@ -244,8 +200,12 @@ export async function PUT(request: NextRequest) {
 
     // 如果名称发生变化，检查新名称是否已存在
     if (name !== existingTag.name) {
-      const nameConflict = await prisma.tag.findUnique({
-        where: { name }
+      const nameConflict = await prisma.tag.findFirst({
+        where: { 
+          name,
+          status: 1,
+          id: { not: BigInt(id) }
+        }
       });
 
       if (nameConflict) {
@@ -267,42 +227,13 @@ export async function PUT(request: NextRequest) {
         color: color || '#6B7280',
         icon,
         parentId: parentId ? BigInt(parentId) : null,
-        updatedAt: new Date()
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        parent: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true
-          }
-        },
-        _count: {
-          select: {
-            influencers: true,
-            children: true
-          }
-        }
+        updatedAt: Math.floor(Date.now() / 1000)
       }
-    });
-
-    // 序列化返回数据
-    const serializedTag = serializeBigInt({
-      ...updatedTag,
-      influencerCount: updatedTag._count.influencers,
-      childrenCount: updatedTag._count.children
     });
 
     return NextResponse.json({
       success: true,
-      tag: serializedTag
+      data: serializeBigInt(updatedTag)
     });
   } catch (error) {
     console.error('Error updating tag:', error);
@@ -325,22 +256,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 检查标签是否存在
-    const existingTag = await prisma.tag.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        _count: {
-          select: {
-            influencers: true,
-            children: true
-          }
-        }
+    // 检查标签是否存在且有效
+    const existingTag = await prisma.tag.findFirst({
+      where: { 
+        id: BigInt(id),
+        status: 1 // 只查找有效的记录
       }
     });
 
     if (!existingTag) {
       return NextResponse.json(
-        { error: 'Tag not found' },
+        { error: 'Tag not found or already deleted' },
         { status: 404 }
       );
     }
@@ -353,33 +279,33 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 检查是否有子标签
-    if (existingTag._count.children > 0) {
+    // 检查是否有有效的子标签
+    const childrenCount = await prisma.tag.count({
+      where: {
+        parentId: BigInt(id),
+        status: 1
+      }
+    });
+
+    if (childrenCount > 0) {
       return NextResponse.json(
         { error: 'Cannot delete tag with child tags. Please delete or reassign child tags first.' },
         { status: 400 }
       );
     }
 
-    // 在事务中执行删除操作
-    await prisma.$transaction(async (tx) => {
-      // 删除所有与该标签相关的达人标签关系
-      await tx.influencerTag.deleteMany({
-        where: {
-          tagId: BigInt(id)
-        }
-      });
-
-      // 删除标签
-      await tx.tag.delete({
-        where: { id: BigInt(id) }
-      });
+    // 使用软删除：将status设置为0
+    await prisma.tag.update({
+      where: { id: BigInt(id) },
+      data: {
+        status: 0,
+        updatedAt: Math.floor(Date.now() / 1000)
+      }
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Tag deleted successfully',
-      deletedInfluencerConnections: existingTag._count.influencers
+      message: 'Tag deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting tag:', error);

@@ -1,8 +1,8 @@
 // 基础类型定义
 export interface BaseEntity {
-  id: string; // 雪花算法生成的ID，序列化为string
-  createdAt: string;
-  updatedAt: string;
+  id: string; // BigInt序列化为string
+  createdAt?: number; // 秒级时间戳
+  updatedAt?: number; // 秒级时间戳
 }
 
 // 用户相关类型
@@ -10,33 +10,44 @@ export interface User extends BaseEntity {
   email: string;
   name: string | null;
   image: string | null;
-  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN';
-  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+  username?: string | null;
+  displayName?: string | null;
+  role: 'USER' | 'ADMIN' | 'MANAGER';
+  department?: string | null;
+  status: number; // 0=无效, 1=有效
+  
+  // 偏好设置
+  preferences?: any;
+  timezone?: string | null;
+  language: string;
+  
+  // 登录信息
+  lastLogin?: number | null; // 秒级时间戳
+  loginCount: number;
 }
 
 // 平台类型
 export interface Platform extends BaseEntity {
   name: string;
-  displayName: string | null;
-  icon: string | null;
-  baseUrl: string | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'DEPRECATED';
-  sortOrder: number;
+  displayName: string;
+  apiEndpoint?: string | null;
+  apiConfig?: any;
+  status: number; // 0=无效, 1=有效
 }
 
 // 标签类型
 export interface Tag extends BaseEntity {
   name: string;
-  displayName: string | null;
-  description: string | null;
+  displayName?: string | null;
+  description?: string | null;
   category: 'CONTENT' | 'AUDIENCE' | 'PERFORMANCE' | 'INDUSTRY' | 'GEOGRAPHY' | 'COOPERATION';
-  color: string | null;
-  icon: string | null;
-  parentId: string | null;
-  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+  color?: string | null;
+  icon?: string | null;
+  parentId?: string | null;
+  status: number; // 0=无效, 1=有效
   sortOrder: number;
   isSystem: boolean;
-  createdBy: string | null;
+  createdBy?: string | null;
   
   // 关联数据
   parent?: Tag | null;
@@ -51,170 +62,280 @@ export interface Tag extends BaseEntity {
 export interface Influencer extends BaseEntity {
   platformId: string;
   platformUserId: string;
-  username: string | null;
-  displayName: string | null;
-  avatar: string | null;
-  bio: string | null;
-  verified: boolean;
+  username?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
   
-  // 联系信息
-  email: string | null;
-  phone: string | null;
-  website: string | null;
-  location: string | null;
+  // 联系方式
+  whatsappAccount?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  wechat?: string | null;
+  telegram?: string | null;
+  
+  // 地理信息
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
+  timezone?: string | null;
+  zipCode?: string | null;
+  province?: string | null;
+  street?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  receiverPhone?: string | null;
+  receiveName?: string | null;
+  
+  // 基础属性
+  gender?: string | null;
+  ageRange?: string | null;
+  language?: string | null;
   
   // 粉丝数据
   followersCount: number;
   followingCount: number;
-  postsCount: number;
+  totalLikes: string; // BigInt序列化为string
+  totalVideos: number;
+  avgVideoViews: number;
+  engagementRate?: number | null;
   
-  // 互动数据
-  avgLikes: number | null;
-  avgComments: number | null;
-  avgShares: number | null;
-  engagementRate: number | null;
+  // 内容属性
+  primaryCategory?: string | null;
+  contentStyle?: any;
+  contentLanguage?: string | null;
+  tendencyCategory?: any; // JSON数组
   
-  // 商务信息
-  rateRange: string | null;
-  currency: string | null;
-  contactStatus: string | null;
+  // 质量评估
+  qualityScore?: number | null;
+  riskLevel: string; // low, medium, high, unknown
+  blacklistReason?: string | null;
+  
+  // 数据来源
+  dataSource: string; // fastmoss, excel, manual, tiktok
+  lastDataSync?: number | null; // 秒级时间戳
+  dataAccuracy?: number | null;
+  
+  // 达人合作详情
+  cooperateStatus?: number | null; // 1=待合作, 2=已合作, 3=终止合作
+  hasSign?: number | null; // 0=未签约, 1=签约中, 2=已签约
+  lastCooperateTime?: number | null; // 秒级时间戳
+  cooperateProductCount?: number | null;
+  fulfillCount?: number | null;
+  cooperateProductName?: string | null;
+  correspondScore?: number | null;
+  avgFulfillDays?: number | null;
+  
+  // 内容描述
+  videoStyle?: any;
+  videoStyleForUs?: any;
+  contentScore?: number | null;
+  orderScore?: number | null;
+  adsRoi?: number | null;
+  
+  // 带货能力
+  gmvTotal?: string | null;
+  gmvCountryRank?: number | null;
+  gmvVideo?: string | null;
+  gmvLive?: string | null;
+  gpmVideo?: string | null;
+  gpmLive?: string | null;
   
   // 系统字段
-  status: 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'PENDING_REVIEW' | 'ARCHIVED';
-  priority: string | null;
-  notes: string | null;
-  lastSyncAt: string | null;
-  createdBy: string | null;
+  status: number; // 0=禁用, 1=启用
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  
+  // 扩展字段
+  platformSpecificData?: any;
+  notes?: string | null;
   
   // 关联数据
   platform?: Platform;
   creator?: User | null;
   tags?: InfluencerTag[];
+  fulfillmentRecords?: FulfillmentRecord[];
 }
 
 // 达人标签关联
 export interface InfluencerTag extends BaseEntity {
   influencerId: string;
   tagId: string;
-  confidence: number | null;
-  source: string | null;
-  createdBy: string | null;
+  confidence?: number | null;
+  source?: string | null;
+  status: number; // 0=无效, 1=有效
+  createdBy?: string | null;
   
   // 关联数据
   influencer?: Influencer;
   tag?: Tag;
 }
 
-// 合作项目
-export interface CooperationProject extends BaseEntity {
+// 履约记录标签关联
+export interface FulfillmentRecordTag extends BaseEntity {
+  fulfillmentRecordId: string;
+  tagId: string;
+  confidence?: number | null;
+  source?: string | null;
+  status: number; // 0=无效, 1=有效
+  createdBy?: string | null;
+  
+  // 关联数据
+  fulfillmentRecord?: FulfillmentRecord;
+  tag?: Tag;
+}
+
+// 合作产品
+export interface CooperationProduct extends BaseEntity {
   name: string;
-  description: string | null;
-  brand: string | null;
-  campaign: string | null;
-  budget: number | null;
-  currency: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  status: 'PLANNING' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' | 'ARCHIVED';
-  priority: string | null;
+  description?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  price?: number | null;
+  currency?: string | null;
   
-  // 目标和要求
-  targetAudience: string | null;
-  contentRequirements: string | null;
-  deliverables: any;
-  kpis: any;
+  // 合作信息
+  budget?: number | null;
+  targetAudience?: string | null;
+  contentRequirements?: string | null;
+  deliverables?: any;
+  kpis?: any;
   
-  createdBy: string | null;
+  // 时间安排
+  startDate?: number | null; // 秒级时间戳
+  endDate?: number | null; // 秒级时间戳
+  
+  // 系统字段
+  status: number; // 0=无效, 1=有效
+  priority?: string | null;
+  createdBy?: string | null;
   
   // 关联数据
   creator?: User | null;
-  cooperationRecords?: CooperationRecord[];
+  fulfillmentRecords?: FulfillmentRecord[];
 }
 
-// 合作记录
-export interface CooperationRecord extends BaseEntity {
+// 履约记录
+export interface FulfillmentRecord extends BaseEntity {
   influencerId: string;
-  projectId: string | null;
+  productId: string;
+  productName: string;
+  cooperationType: string;
+  fulfillmentDesc?: string | null;
+  fulfillmentStatus?: string | null;
+  needSample?: number | null; // 0=不需要, 1=需要
   
-  // 合作基本信息
-  cooperationType: string | null;
-  platform: string | null;
-  status: 'CONTACTED' | 'RESPONDED' | 'NEGOTIATING' | 'AGREED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
-  priority: string | null;
+  // 达人合作详情
+  cooperateStatus?: number | null; // 1=待合作, 2=已合作, 3=终止合作
+  hasSign?: number | null; // 0=未签约, 1=签约中, 2=已签约
+  actualFulfillTime?: number | null; // 秒级时间戳
+  correspondScore?: number | null;
+  fulfillDays?: number | null;
   
-  // 商务信息
-  budget: number | null;
-  currency: string | null;
-  negotiationNotes: string | null;
-  contractSigned: boolean;
-  paymentStatus: string | null;
+  // 时间节点
+  sampleDeliveryTime?: number | null; // 秒级时间戳
+  firstTouchTime?: number | null; // 秒级时间戳
+  contactDate?: number | null; // 秒级时间戳
   
-  // 时间安排
-  contactDate: string | null;
-  responseDate: string | null;
-  agreementDate: string | null;
-  contentDeadline: string | null;
-  publishDate: string | null;
+  // 内容描述
+  videoStyle?: string | null;
+  videoStyleForUs?: string | null;
+  contentScore?: number | null;
+  orderScore?: number | null;
+  adsRoi?: number | null;
+  videoQuantityDesc?: string | null;
+  liveQuantityDesc?: string | null;
   
-  // 内容要求
-  contentBrief: string | null;
-  contentDraft: string | null;
-  contentFinal: string | null;
-  contentUrl: string | null;
+  // 责任人
+  ownerId?: string | null;
+  ownerName?: string | null;
   
-  // 效果数据
-  views: number | null;
-  likes: number | null;
-  comments: number | null;
-  shares: number | null;
-  clicks: number | null;
-  conversions: number | null;
-  conversionRate: number | null;
-  roi: number | null;
+  // 标签和备注
+  fulfillRemark?: string | null;
   
-  // 评价
-  performanceScore: number | null;
-  cooperationRating: number | null;
-  feedback: string | null;
-  
-  createdBy: string | null;
+  // 系统字段
+  status: number; // 0=无效, 1=有效
+  createdBy?: string | null;
   
   // 关联数据
   influencer?: Influencer;
-  project?: CooperationProject | null;
+  product?: CooperationProduct;
   creator?: User | null;
   communicationLogs?: CommunicationLog[];
+  fulfillmentTags?: FulfillmentRecordTag[];
 }
 
 // 沟通记录
 export interface CommunicationLog extends BaseEntity {
   influencerId: string;
-  cooperationRecordId: string | null;
+  fulfillmentRecordId?: string | null;
   
   // 沟通信息
-  type: string;
-  direction: string;
-  subject: string | null;
+  type: string; // email, whatsapp, telegram, wechat, phone, meeting
+  direction: string; // inbound, outbound
+  subject?: string | null;
   content: string;
-  attachments: any;
+  attachments?: any;
   
   // 状态
-  status: string | null;
+  status: number; // 0=无效, 1=有效
   isImportant: boolean;
   isFollowUpRequired: boolean;
-  followUpDate: string | null;
+  followUpDate?: number | null; // 秒级时间戳
   
   // 系统字段
-  communicationDate: string;
-  createdBy: string | null;
+  communicationDate: number; // 秒级时间戳
+  createdBy?: string | null;
   
   // 关联数据
   influencer?: Influencer;
-  cooperationRecord?: CooperationRecord | null;
+  fulfillmentRecord?: FulfillmentRecord | null;
   creator?: User | null;
 }
 
-// API 响应类型
+// 达人数据历史记录
+export interface InfluencerMetricsHistory extends BaseEntity {
+  influencerId: string;
+  followersCount: number;
+  followingCount: number;
+  totalLikes: string; // BigInt序列化为string
+  totalVideos: number;
+  avgVideoViews: number;
+  engagementRate?: number | null;
+  recordDate: number; // 秒级时间戳
+  status: number; // 0=无效, 1=有效
+  
+  // 关联数据
+  influencer?: Influencer;
+}
+
+// 导入记录
+export interface ImportRecord extends BaseEntity {
+  fileName: string;
+  fileSize?: number | null;
+  fileType?: string | null;
+  importType: string; // influencers, tags, fulfillment_records
+  status: number; // 0=处理中, 1=成功, 2=失败
+  
+  // 处理统计
+  totalRows?: number | null;
+  successRows?: number | null;
+  errorRows?: number | null;
+  duplicateRows?: number | null;
+  
+  // 处理结果
+  errorLog?: string | null;
+  mapping?: string | null;
+  
+  // 时间记录
+  startTime?: number | null; // 秒级时间戳
+  endTime?: number | null; // 秒级时间戳
+  processingTime?: number | null;
+  
+  createdBy?: string | null;
+}
+
+// API响应类型
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -232,11 +353,11 @@ export interface PaginatedResponse<T> {
   };
 }
 
-// 搜索和过滤参数
+// 筛选器接口
 export interface TagFilters {
   search?: string;
   category?: string;
-  status?: string;
+  status?: number;
   page?: number;
   limit?: number;
 }
@@ -244,15 +365,32 @@ export interface TagFilters {
 export interface InfluencerFilters {
   search?: string;
   platform?: string;
-  status?: string;
+  status?: number;
   tags?: string[];
   minFollowers?: number;
   maxFollowers?: number;
+  cooperateStatus?: number;
+  hasSign?: number;
+  country?: string;
+  riskLevel?: string;
+  dataSource?: string;
   page?: number;
   limit?: number;
 }
 
-// 表单数据类型
+export interface FulfillmentRecordFilters {
+  search?: string;
+  influencerId?: string;
+  productId?: string;
+  cooperateStatus?: number;
+  hasSign?: number;
+  fulfillmentStatus?: string;
+  needSample?: number;
+  page?: number;
+  limit?: number;
+}
+
+// 表单接口
 export interface CreateTagForm {
   name: string;
   displayName?: string;
@@ -272,17 +410,57 @@ export interface CreateInfluencerForm {
   platformUserId: string;
   username?: string;
   displayName?: string;
-  avatar?: string;
+  avatarUrl?: string;
   bio?: string;
+  
+  // 联系方式
+  whatsappAccount?: string;
   email?: string;
   phone?: string;
-  website?: string;
-  location?: string;
+  wechat?: string;
+  telegram?: string;
+  
+  // 地理信息
+  country?: string;
+  region?: string;
+  city?: string;
+  timezone?: string;
+  zipCode?: string;
+  province?: string;
+  street?: string;
+  address1?: string;
+  address2?: string;
+  receiverPhone?: string;
+  receiveName?: string;
+  
+  // 基础属性
+  gender?: string;
+  ageRange?: string;
+  language?: string;
+  
+  // 粉丝数据
   followersCount?: number;
   followingCount?: number;
-  postsCount?: number;
-  rateRange?: string;
-  currency?: string;
+  totalLikes?: string;
+  totalVideos?: number;
+  avgVideoViews?: number;
+  engagementRate?: number;
+  
+  // 内容属性
+  primaryCategory?: string;
+  contentStyle?: any;
+  contentLanguage?: string;
+  tendencyCategory?: any;
+  
+  // 质量评估
+  qualityScore?: number;
+  riskLevel?: string;
+  blacklistReason?: string;
+  
+  // 数据来源
+  dataSource?: string;
+  dataAccuracy?: number;
+  
   notes?: string;
 }
 
@@ -290,15 +468,81 @@ export interface UpdateInfluencerForm extends Partial<CreateInfluencerForm> {
   id: string;
 }
 
-// 达人状态
-export enum InfluencerStatus {
-  ACTIVE = 'ACTIVE',           // 活跃
-  INACTIVE = 'INACTIVE',       // 不活跃
-  BLACKLISTED = 'BLACKLISTED', // 黑名单
-  POTENTIAL = 'POTENTIAL'      // 潜在
+export interface CreateFulfillmentRecordForm {
+  influencerId: string;
+  productId: string;
+  productName: string;
+  cooperationType: string;
+  fulfillmentDesc?: string;
+  fulfillmentStatus?: string;
+  needSample?: number;
+  
+  // 达人合作详情
+  cooperateStatus?: number;
+  hasSign?: number;
+  correspondScore?: number;
+  fulfillDays?: number;
+  
+  // 内容描述
+  videoStyle?: string;
+  videoStyleForUs?: string;
+  contentScore?: number;
+  orderScore?: number;
+  adsRoi?: number;
+  videoQuantityDesc?: string;
+  liveQuantityDesc?: string;
+  
+  // 责任人
+  ownerId?: string;
+  ownerName?: string;
+  
+  // 标签和备注
+  fulfillRemark?: string;
 }
 
-// 标签分类
+export interface UpdateFulfillmentRecordForm extends Partial<CreateFulfillmentRecordForm> {
+  id: string;
+}
+
+export interface CreateCooperationProductForm {
+  name: string;
+  description?: string;
+  brand?: string;
+  category?: string;
+  price?: number;
+  currency?: string;
+  budget?: number;
+  targetAudience?: string;
+  contentRequirements?: string;
+  deliverables?: any;
+  kpis?: any;
+  startDate?: number;
+  endDate?: number;
+  priority?: string;
+}
+
+export interface UpdateCooperationProductForm extends Partial<CreateCooperationProductForm> {
+  id: string;
+}
+
+// 枚举类型
+export enum InfluencerStatus {
+  DISABLED = 0,
+  ACTIVE = 1
+}
+
+export enum CooperateStatus {
+  PENDING = 1,      // 待合作
+  COOPERATED = 2,   // 已合作
+  TERMINATED = 3    // 终止合作
+}
+
+export enum SignStatus {
+  UNSIGNED = 0,     // 未签约
+  SIGNING = 1,      // 签约中
+  SIGNED = 2        // 已签约
+}
+
 export enum TagCategory {
   CONTENT = 'CONTENT',         // 内容类型
   AUDIENCE = 'AUDIENCE',       // 受众群体
@@ -308,51 +552,48 @@ export enum TagCategory {
   COOPERATION = 'COOPERATION'  // 合作相关
 }
 
-// 合作状态
-export enum CooperationStatus {
-  PLANNED = 'PLANNED',         // 计划中
-  NEGOTIATING = 'NEGOTIATING', // 洽谈中
-  CONFIRMED = 'CONFIRMED',     // 已确认
-  IN_PROGRESS = 'IN_PROGRESS', // 进行中
-  COMPLETED = 'COMPLETED',     // 已完成
-  CANCELLED = 'CANCELLED'      // 已取消
+export enum ImportStatus {
+  PENDING = 0,      // 待处理
+  PROCESSING = 1,   // 处理中
+  SUCCESS = 2,      // 成功
+  FAILED = 3        // 失败
 }
 
-// 合作结果
-export interface CooperationResult {
-  views: number;
-  likes: number;
-  shares: number;
-  comments: number;
-  clicks?: number;
-  conversions?: number;
-  revenue?: number;
-  roi?: number;
+// 统计数据接口
+export interface Statistics {
+  totalInfluencers: number;
+  activeInfluencers: number;
+  totalTags: number;
+  activeFulfillments: number;
+  monthlyConversionRate: number;
+  platformDistribution: Record<string, number>;
+  recentActivities: Activity[];
 }
 
-// 搜索过滤器
-export interface InfluencerFilter {
-  keyword?: string;
-  platforms?: Platform[];
-  tags?: string[];
-  minFollowers?: number;
-  maxFollowers?: number;
-  minEngagementRate?: number;
-  maxEngagementRate?: number;
-  status?: InfluencerStatus[];
-  lastContactBefore?: Date;
-  lastContactAfter?: Date;
+export interface Activity {
+  id: string;
+  type: ActivityType;
+  description: string;
+  entityId: string;
+  entityType: string;
+  timestamp: number; // 秒级时间戳
+  metadata?: Record<string, any>;
 }
 
-// 分页参数
-export interface PaginationParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+export enum ActivityType {
+  INFLUENCER_CREATED = 'INFLUENCER_CREATED',
+  INFLUENCER_UPDATED = 'INFLUENCER_UPDATED',
+  INFLUENCER_TAGGED = 'INFLUENCER_TAGGED',
+  FULFILLMENT_CREATED = 'FULFILLMENT_CREATED',
+  FULFILLMENT_UPDATED = 'FULFILLMENT_UPDATED',
+  FULFILLMENT_COMPLETED = 'FULFILLMENT_COMPLETED',
+  TAG_CREATED = 'TAG_CREATED',
+  TAG_UPDATED = 'TAG_UPDATED',
+  PRODUCT_CREATED = 'PRODUCT_CREATED',
+  PRODUCT_UPDATED = 'PRODUCT_UPDATED'
 }
 
-// 分页结果
+// 分页结果接口
 export interface PaginatedResult<T> {
   data: T[];
   total: number;
@@ -361,35 +602,10 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
-// 统计数据
-export interface Statistics {
-  totalInfluencers: number;
-  totalTags: number;
-  activeCooperations: number;
-  monthlyConversionRate: number;
-  platformDistribution: Record<Platform, number>;
-  recentActivities: Activity[];
-}
-
-// 活动记录
-export interface Activity {
-  id: string;
-  type: ActivityType;
-  description: string;
-  entityId: string;
-  entityType: string;
-  timestamp: Date;
-  metadata?: Record<string, any>;
-}
-
-// 活动类型
-export enum ActivityType {
-  INFLUENCER_CREATED = 'INFLUENCER_CREATED',
-  INFLUENCER_UPDATED = 'INFLUENCER_UPDATED',
-  INFLUENCER_TAGGED = 'INFLUENCER_TAGGED',
-  COOPERATION_CREATED = 'COOPERATION_CREATED',
-  COOPERATION_UPDATED = 'COOPERATION_UPDATED',
-  COOPERATION_COMPLETED = 'COOPERATION_COMPLETED',
-  TAG_CREATED = 'TAG_CREATED',
-  TAG_UPDATED = 'TAG_UPDATED'
+// 分页参数接口
+export interface PaginationParams {
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 } 

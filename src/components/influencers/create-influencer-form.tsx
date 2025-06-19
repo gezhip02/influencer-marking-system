@@ -43,12 +43,9 @@ export interface InfluencerFormData {
   contentStyle?: any;
   contentLanguage?: string;
   
-  // 商业合作
-  cooperationOpenness?: string;
-  baseCooperationFee?: number;
-  cooperationCurrency?: string;
-  cooperationPreferences?: any;
-  
+  // 合作设置
+
+    
   // 质量评估
   qualityScore?: number;
   riskLevel?: string;
@@ -109,12 +106,7 @@ const AGE_RANGE_OPTIONS = [
   { value: 'unknown', label: '未知' }
 ];
 
-const COOPERATION_OPENNESS_OPTIONS = [
-  { value: 'high', label: '积极合作', color: 'text-green-600' },
-  { value: 'medium', label: '中等合作', color: 'text-yellow-600' },
-  { value: 'low', label: '较少合作', color: 'text-red-600' },
-  { value: 'unknown', label: '未知', color: 'text-gray-600' }
-];
+
 
 const RISK_LEVEL_OPTIONS = [
   { value: 'low', label: '低风险', color: 'text-green-600' },
@@ -187,11 +179,7 @@ export default function CreateInfluencerForm({
         contentStyle: initialData.contentStyle || null,
         contentLanguage: initialData.contentLanguage || '',
         
-        // 商业合作
-        cooperationOpenness: initialData.cooperationOpenness || 'unknown',
-        baseCooperationFee: initialData.baseCooperationFee || 0,
-        cooperationCurrency: initialData.cooperationCurrency || 'USD',
-        cooperationPreferences: initialData.cooperationPreferences || null,
+        // 商业合作字段已移除
         
         // 质量评估
         qualityScore: initialData.qualityScore || 0,
@@ -219,8 +207,7 @@ export default function CreateInfluencerForm({
       displayName: '',
       followersCount: 0,
       tagIds: [],
-      cooperationCurrency: 'USD',
-      cooperationOpenness: 'unknown',
+      // 移除无效的合作字段
       riskLevel: 'unknown',
       status: 'ACTIVE'
     };
@@ -255,8 +242,7 @@ export default function CreateInfluencerForm({
       displayName: '',
       followersCount: 0,
       tagIds: [],
-      cooperationCurrency: 'USD',
-      cooperationOpenness: 'unknown',
+      
       riskLevel: 'unknown'
     });
     setErrors({});
@@ -311,18 +297,16 @@ export default function CreateInfluencerForm({
       
       case 3: // 数据指标
         if (formData.followersCount < 0) newErrors.followersCount = '粉丝数不能为负数';
-        if (formData.engagementRate && (formData.engagementRate < 0 || formData.engagementRate > 1)) {
-          newErrors.engagementRate = '互动率应在0-1之间';
+        if (formData.engagementRate && (formData.engagementRate < 0 || formData.engagementRate > 100)) {
+          newErrors.engagementRate = '互动率应在0-100之间';
         }
         if (formData.qualityScore && (formData.qualityScore < 0 || formData.qualityScore > 100)) {
           newErrors.qualityScore = '质量评分应在0-100之间';
         }
         break;
       
-      case 4: // 商业合作
-        if (formData.baseCooperationFee && formData.baseCooperationFee < 0) {
-          newErrors.baseCooperationFee = '合作费用不能为负数';
-        }
+      case 4: // 标签分类
+        // 标签分类步骤不需要特殊验证
         break;
     }
 
@@ -835,7 +819,7 @@ export default function CreateInfluencerForm({
                     {/* 互动率 */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        互动率 (0-1)
+                        互动率 (0-100)
                       </label>
                       <input
                         type="number"
@@ -845,9 +829,9 @@ export default function CreateInfluencerForm({
                         className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
                           errors.engagementRate ? 'border-red-300' : 'border-gray-300'
                         }`}
-                        placeholder="0.05"
+                        placeholder="50"
                         min="0"
-                        max="1"
+                        max="100"
                       />
                       {errors.engagementRate && (
                         <p className="mt-1 text-sm text-red-600">{errors.engagementRate}</p>
@@ -904,68 +888,10 @@ export default function CreateInfluencerForm({
               {/* 步骤4: 商业合作 */}
               {currentStep === 4 && (
                 <div className="space-y-6">
-                  {/* 合作意愿 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      合作意愿
-                    </label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {COOPERATION_OPENNESS_OPTIONS.map(option => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => handleFieldChange('cooperationOpenness', option.value)}
-                          className={`px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
-                            formData.cooperationOpenness === option.value
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-300 bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <span className={option.color}>{option.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+
 
                   {/* 合作费用 */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        基础合作费用
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.baseCooperationFee || ''}
-                        onChange={(e) => handleFieldChange('baseCooperationFee', parseFloat(e.target.value) || undefined)}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
-                          errors.baseCooperationFee ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                        placeholder="1000.00"
-                        min="0"
-                      />
-                      {errors.baseCooperationFee && (
-                        <p className="mt-1 text-sm text-red-600">{errors.baseCooperationFee}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        货币
-                      </label>
-                      <select
-                        value={formData.cooperationCurrency}
-                        onChange={(e) => handleFieldChange('cooperationCurrency', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        {CURRENCY_OPTIONS.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                  {/* 商业合作费用字段已从schema中移除 */}
 
                   {/* 备注 */}
                   <div>

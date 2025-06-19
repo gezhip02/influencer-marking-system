@@ -18,10 +18,10 @@ interface TagData {
   category: string;
   color: string;
   icon?: string;
-  influencerCount: number;
+  influencerCount?: number;  // 可选字段，如果API没有返回则默认为0
   isSystem: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string | number;  // 可能是时间戳
+  updatedAt?: string | number;  // 可能是时间戳
 }
 
 interface Stats {
@@ -36,7 +36,8 @@ interface Stats {
 }
 
 interface ApiResponse {
-  tags: TagData[];
+  success: boolean;
+  data: TagData[];
   pagination: {
     page: number;
     limit: number;
@@ -69,11 +70,12 @@ function useTagFilters() {
   };
 }
 
-function formatDate(date: string): string {
+function formatDate(date: string | number): string {
   if (!date) return '未知时间';
   
   try {
-    const dateObj = new Date(date);
+    // 如果是数字时间戳，转换为毫秒
+    const dateObj = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
     // 检查日期是否有效
     if (isNaN(dateObj.getTime())) {
       return '无效时间';
@@ -133,6 +135,9 @@ function TagsManagement() {
   // 用于搜索的实际关键词，只有用户主动搜索时才更新
   const [searchTerm, setSearchTerm] = useState('');
   
+  // 视图模式状态
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
+  
   // 模态框状态
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -162,7 +167,12 @@ function TagsManagement() {
       }
       
       const data: ApiResponse = await response.json();
-      setTags(data.tags || []);
+      // 确保每个标签都有influencerCount字段
+      const tagsWithCount = (data.data || []).map(tag => ({
+        ...tag,
+        influencerCount: tag.influencerCount || 0
+      }));
+      setTags(tagsWithCount);
       setStats(data.stats || { total: 0, totalInfluencers: 0, categories: [] });
       setPagination(data.pagination || { page: 1, limit: 20, total: 0, pages: 0 });
     } catch (err) {
@@ -245,7 +255,7 @@ function TagsManagement() {
       await fetchTags();
       
       // 显示成功提示
-      showSuccess(`标签 "${result.tag.displayName}" 创建成功！`);
+      showSuccess(`标签 "${result.data.displayName}" 创建成功！`);
       
     } catch (error) {
       console.error('创建标签失败:', error);
@@ -289,7 +299,7 @@ function TagsManagement() {
       await fetchTags();
       
       // 显示成功提示
-      showSuccess(`标签 "${result.tag.displayName}" 更新成功！`);
+      showSuccess(`标签 "${result.data.displayName}" 更新成功！`);
       
     } catch (error) {
       console.error('编辑标签失败:', error);
@@ -384,6 +394,36 @@ function TagsManagement() {
                 </div>
               </div>
               <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+                {/* 视图模式切换 */}
+                <div className="inline-flex rounded-md shadow-sm">
+                  <button
+                    onClick={() => setViewMode('card')}
+                    className={`relative inline-flex items-center px-3 py-2 rounded-l-md border text-sm font-medium ${
+                      viewMode === 'card' 
+                        ? 'bg-blue-600 border-blue-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14-4v8M5 7v8m6-8v8" />
+                    </svg>
+                    <span className="ml-1 hidden sm:block">卡片</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`relative inline-flex items-center px-3 py-2 rounded-r-md border text-sm font-medium ${
+                      viewMode === 'list' 
+                        ? 'bg-blue-600 border-blue-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    <span className="ml-1 hidden sm:block">列表</span>
+                  </button>
+                </div>
+                
                 {hasActiveFilters && (
                   <button 
                     onClick={clearFilters}
@@ -535,126 +575,334 @@ function TagsManagement() {
           </div>
         </div>
 
-        {/* Tags Grid */}
+        {/* 标签显示区域 */}
         {tags.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tags.map((tag) => (
-              <div key={tag.id} className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getTagColor(tag.color)}`}>
-                      {tag.displayName}
-                    </span>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => {
-                          setSelectedTag(tag);
-                          setIsEditModalOpen(true);
-                        }}
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
-                        title="编辑标签"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      {!tag.isSystem && (
-                        <button 
-                          onClick={() => {
-                            setSelectedTag(tag);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          title="删除标签"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">分类：</span>{getCategoryText(tag.category)}
-                    </div>
-                    
-                    {tag.description && (
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">描述：</span>{tag.description}
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Users className="h-4 w-4 mr-1" />
-                      <span>{tag.influencerCount} 个达人</span>
-                      {tag.isSystem && (
-                        <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          系统
+          <div className="bg-white shadow rounded-lg">
+            {/* 卡片视图 */}
+            {viewMode === 'card' && (
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {tags.map((tag) => (
+                    <div key={tag.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getTagColor(tag.color)}`}>
+                          {tag.displayName}
                         </span>
-                      )}
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => {
+                              setSelectedTag(tag);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="text-gray-400 hover:text-blue-600 transition-colors"
+                            title="编辑标签"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          {!tag.isSystem && (
+                            <button 
+                              onClick={() => {
+                                setSelectedTag(tag);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="text-gray-400 hover:text-red-600 transition-colors"
+                              title="删除标签"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">分类：</span>{getCategoryText(tag.category)}
+                        </div>
+                        
+                        {tag.description && (
+                          <div className="text-sm text-gray-600 line-clamp-2">
+                            <span className="font-medium">描述：</span>{tag.description}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-1" />
+                            <span>{tag.influencerCount || 0} 个达人</span>
+                          </div>
+                          {tag.isSystem && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              系统
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="text-xs text-gray-400">
+                          创建于 {formatDate(tag.createdAt || '')}
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="text-xs text-gray-400">
-                      创建于 {formatDate(tag.createdAt || '')}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* 列表视图 */}
+            {viewMode === 'list' && (
+              <div className="overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        标签名称
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        分类
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        描述
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        关联达人
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        创建时间
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        操作
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {tags.map((tag) => (
+                      <tr key={tag.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getTagColor(tag.color)}`}>
+                              {tag.displayName}
+                            </span>
+                            {tag.isSystem && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                系统
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {getCategoryText(tag.category)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                          {tag.description || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-1 text-gray-400" />
+                            {tag.influencerCount || 0}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(tag.createdAt || '')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button 
+                              onClick={() => {
+                                setSelectedTag(tag);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded-md hover:bg-blue-50 transition-colors"
+                              title="编辑标签"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            {!tag.isSystem && (
+                              <button 
+                                onClick={() => {
+                                  setSelectedTag(tag);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                                className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50 transition-colors"
+                                title="删除标签"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <Tag className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              {hasActiveFilters ? '没有找到符合条件的标签' : '暂无标签数据'}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {hasActiveFilters 
-                ? '尝试调整搜索条件或清除筛选器'
-                : '开始创建标签来管理您的达人分类'
-              }
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                清除筛选
-              </button>
-            )}
+          <div className="bg-white shadow rounded-lg">
+            <div className="text-center py-12">
+              <Tag className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                {hasActiveFilters ? '没有找到符合条件的标签' : '暂无标签数据'}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {hasActiveFilters 
+                  ? '尝试调整搜索条件或清除筛选器'
+                  : '开始创建标签来管理您的达人分类'
+                }
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  清除筛选
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* 简单分页信息 */}
+        {/* 完整分页控件 */}
         {pagination.total > 0 && (
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-lg shadow">
             <div className="flex-1 flex justify-between sm:hidden">
               <button 
                 disabled={pagination.page <= 1}
+                onClick={() => setters.setPage(pagination.page - 1)}
                 className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 上一页
               </button>
               <button 
                 disabled={pagination.page >= pagination.pages}
+                onClick={() => setters.setPage(pagination.page + 1)}
                 className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 下一页
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  显示第 <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> 到{' '}
-                  <span className="font-medium">
-                    {Math.min(pagination.page * pagination.limit, pagination.total)}
-                  </span> 条，共{' '}
-                  <span className="font-medium">{pagination.total}</span> 条记录
-                </p>
+              <div className="flex items-center space-x-6">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    显示第 <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> 到{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.page * pagination.limit, pagination.total)}
+                    </span> 条，共{' '}
+                    <span className="font-medium">{pagination.total}</span> 条记录
+                  </p>
+                </div>
+                
+                {/* 每页显示条数选择 */}
+                <div className="flex items-center space-x-2">
+                  <label htmlFor="page-size" className="text-sm text-gray-700">每页显示:</label>
+                  <select
+                    id="page-size"
+                    value={filters.limit}
+                    onChange={(e) => {
+                      setters.setLimit(parseInt(e.target.value));
+                      setters.setPage(1); // 重置到第一页
+                    }}
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-gray-700">条</span>
+                </div>
               </div>
+              
+              {/* 页码导航 */}
               <div>
-                <p className="text-sm text-gray-700">
-                  第 <span className="font-medium">{pagination.page}</span> 页，共{' '}
-                  <span className="font-medium">{pagination.pages}</span> 页
-                </p>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  {/* 上一页 */}
+                  <button
+                    disabled={pagination.page <= 1}
+                    onClick={() => setters.setPage(pagination.page - 1)}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">上一页</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  {/* 页码按钮 */}
+                  {(() => {
+                    const getPageNumbers = () => {
+                      const delta = 2;
+                      const range = [];
+                      const rangeWithDots = [];
+
+                      for (let i = Math.max(1, pagination.page - delta); 
+                           i <= Math.min(pagination.pages, pagination.page + delta); 
+                           i++) {
+                        range.push(i);
+                      }
+
+                      if (range[0] > 1) {
+                        if (range[0] > 2) {
+                          rangeWithDots.push(1, '...');
+                        } else {
+                          rangeWithDots.push(1);
+                        }
+                      }
+
+                      rangeWithDots.push(...range);
+
+                      if (range[range.length - 1] < pagination.pages) {
+                        if (range[range.length - 1] < pagination.pages - 1) {
+                          rangeWithDots.push('...', pagination.pages);
+                        } else {
+                          rangeWithDots.push(pagination.pages);
+                        }
+                      }
+
+                      return rangeWithDots;
+                    };
+
+                    return getPageNumbers().map((page, index) => {
+                      if (page === '...') {
+                        return (
+                          <span
+                            key={`ellipsis-${index}`}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      const isCurrentPage = page === pagination.page;
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setters.setPage(page as number)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            isCurrentPage
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    });
+                  })()}
+                  
+                  {/* 下一页 */}
+                  <button
+                    disabled={pagination.page >= pagination.pages}
+                    onClick={() => setters.setPage(pagination.page + 1)}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">下一页</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
               </div>
             </div>
           </div>

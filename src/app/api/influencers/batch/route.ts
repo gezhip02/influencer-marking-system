@@ -6,21 +6,27 @@ import { serializeBigInt } from '@/lib/bigint-serializer';
 // 批量添加标签
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
     const body = await request.json();
+    const action = body.action;
 
     switch (action) {
+      case 'addTags':
       case 'add-tags':
         return await handleAddTags(body);
+      case 'removeTags':
       case 'remove-tags':
         return await handleRemoveTags(body);
+      case 'updateStatus':
       case 'update-status':
         return await handleUpdateStatus(body);
       case 'export':
         return await handleExport(body);
       case 'import':
         return await handleImport(body);
+      case 'update':
+        return await handleBatchUpdate(body);
+      case 'delete':
+        return await handleBatchDelete(body);
       default:
         return NextResponse.json(
           { error: 'Invalid action' },
@@ -79,7 +85,11 @@ async function handleAddTags(body: any) {
           newRelations.push({
             id: generateId(),
             influencerId,
-            tagId
+            tagId,
+            confidence: 1.0,
+            source: 'manual',
+            createdAt: Math.floor(Date.now() / 1000),
+            createdBy: null
           });
         }
       }
@@ -145,17 +155,17 @@ async function handleUpdateStatus(body: any) {
     );
   }
 
-  if (!status) {
+  if (status === undefined || status === null) {
     return NextResponse.json(
       { error: 'Status is required' },
       { status: 400 }
     );
   }
 
-  const validStatuses = ['ACTIVE', 'INACTIVE', 'POTENTIAL', 'BLACKLISTED'];
-  if (!validStatuses.includes(status)) {
+  const validStatuses = [0, 1]; // 0=禁用, 1=启用
+  if (!validStatuses.includes(Number(status))) {
     return NextResponse.json(
-      { error: 'Invalid status' },
+      { error: 'Invalid status. Must be 0 (disabled) or 1 (enabled)' },
       { status: 400 }
     );
   }
@@ -165,7 +175,7 @@ async function handleUpdateStatus(body: any) {
       id: { in: influencerIds.map(id => BigInt(id)) }
     },
     data: {
-      status
+      status: Number(status)
     }
   });
 
@@ -177,73 +187,169 @@ async function handleUpdateStatus(body: any) {
 
 // 批量导出
 async function handleExport(body: any) {
-  const { influencerIds, format = 'json' } = body;
-
-  if (!influencerIds || !Array.isArray(influencerIds) || influencerIds.length === 0) {
-    return NextResponse.json(
-      { error: 'Influencer IDs are required' },
-      { status: 400 }
-    );
+  const { influencerIds, filters, format = 'json' } = body;
+  
+  // 支持两种模式：指定IDs或根据filters导出
+  let whereClause = {};
+  
+  if (influencerIds && Array.isArray(influencerIds) && influencerIds.length > 0) {
+    whereClause = {
+      id: { in: influencerIds.map((id: string) => BigInt(id)) }
+    };
+  } else if (filters) {
+    // 使用filters构建查询条件
+    const { page = 1, limit = 1000 } = filters;
+    // 这里可以根据需要添加更多过滤条件
+  } else {
+    // 默认导出前100条数据
+    whereClause = {};
   }
 
-  const influencers = await prisma.influencer.findMany({
-    where: {
-      id: { in: influencerIds.map(id => BigInt(id)) }
-    },
-    include: {
-      platform: true,
-      tags: {
-        include: {
-          tag: true
-        }
-      },
-      _count: {
-        select: {
-          cooperationRecords: true,
-          communicationLogs: true
-        }
+  // 获取达人数据、平台数据和标签数据
+  const [influencers, platforms, allTags, allTagRelations] = await Promise.all([
+    prisma.influencer.findMany({
+      where: {
+        ...whereClause,
+        status: 1 // 只导出有效数据
       }
+    }),
+    prisma.platform.findMany(),
+    prisma.tag.findMany({
+      where: { status: 1 }
+    }),
+    prisma.influencerTag.findMany({
+      where: { status: 1 }
+    })
+  ]);
+
+  // 创建映射表提高性能
+  const platformMap = new Map(platforms.map(p => [p.id.toString(), p]));
+  const tagMapById = new Map(allTags.map(t => [t.id.toString(), t]));
+  const influencerTagMap = new Map();
+  
+  allTagRelations.forEach(relation => {
+    const influencerId = relation.influencerId.toString();
+    const tag = tagMapById.get(relation.tagId.toString());
+    if (tag) {
+      if (!influencerTagMap.has(influencerId)) {
+        influencerTagMap.set(influencerId, []);
+      }
+      influencerTagMap.get(influencerId).push(tag);
     }
   });
 
-  // 处理标签数据结构
-  const processedInfluencers = influencers.map(influencer => ({
-    ...influencer,
-    tags: influencer.tags.map((tagRelation: any) => tagRelation.tag)
-  }));
+  // 处理数据，包含关联数据
+  const processedInfluencers = influencers.map(influencer => {
+    const platform = platformMap.get(influencer.platformId.toString());
+    const tags = influencerTagMap.get(influencer.id.toString()) || [];
+    
+    return {
+      ...influencer,
+      platformName: platform?.displayName || platform?.name || '',
+      tagNames: tags.map((tag: any) => tag.displayName || tag.name).filter(Boolean).join(', ')
+    };
+  });
 
   const serializedInfluencers = serializeBigInt(processedInfluencers);
 
   if (format === 'csv') {
-    // 生成CSV格式
+    // 生成CSV格式 - 包含所有字段
     const csvHeaders = [
-      'ID', 'Username', 'Display Name', 'Platform', 'Followers', 'Engagement Rate',
-      'Quality Score', 'Status', 'Email', 'Phone', 'WhatsApp', 'WeChat',
-      'Country', 'Region', 'Category', 'Tags', 'Created At'
+      'Platform', 'Platform User ID', 'Username', 'Display Name', 'Avatar URL', 'Bio',
+      'WhatsApp Account', 'Email', 'Phone', 'WeChat', 'Telegram',
+      'Country', 'Region', 'City', 'Timezone', 'Zip Code', 'Province', 'Street',
+      'Address 1', 'Address 2', 'Receiver Phone', 'Receive Name',
+      'Gender', 'Age Range', 'Language',
+      'Followers Count', 'Following Count', 'Total Likes', 'Total Videos', 'Avg Video Views',
+      'Engagement Rate', 'Primary Category', 'Content Style', 'Content Language', 'Tendency Category',
+      'Quality Score', 'Risk Level', 'Blacklist Reason',
+      'Data Source', 'Last Data Sync', 'Data Accuracy',
+      'Cooperate Status', 'Has Sign', 'Last Cooperate Time', 'Cooperate Product Count',
+      'Fulfill Count', 'Cooperate Product Name', 'Correspond Score', 'Avg Fulfill Days',
+      'Video Style', 'Video Style For Us', 'Content Score', 'Order Score',
+      'Ads ROI', 'GMV Total', 'GMV Country Rank', 'GMV Video', 'GMV Live',
+      'GPM Video', 'GPM Live', 'Status', 'Notes', 'Tags', 'Created At', 'Updated At'
     ];
 
     const csvRows = serializedInfluencers.map((influencer: any) => [
-      influencer.id,
+      influencer.platformName || influencer.platform?.displayName || '', // 使用平台名称
+      String(influencer.platformUserId || '').replace(/^(\d+)$/, '="$1"'), // 只对纯数字ID添加Excel公式避免科学计数法
       influencer.username || '',
       influencer.displayName || '',
-      influencer.platform?.displayName || '',
-      influencer.followersCount || 0,
-      influencer.engagementRate || '',
-      influencer.qualityScore || '',
-      influencer.status || '',
+      influencer.avatarUrl || '',
+      influencer.bio || '',
+      influencer.whatsappAccount || '',
       influencer.email || '',
       influencer.phone || '',
-      influencer.whatsappAccount || '',
       influencer.wechat || '',
+      influencer.telegram || '',
       influencer.country || '',
       influencer.region || '',
+      influencer.city || '',
+      influencer.timezone || '',
+      influencer.zipCode || '',
+      influencer.province || '',
+      influencer.street || '',
+      influencer.address1 || '',
+      influencer.address2 || '',
+      influencer.receiverPhone || '',
+      influencer.receiveName || '',
+      influencer.gender || '',
+      influencer.ageRange || '',
+      influencer.language || '',
+      influencer.followersCount || 0, // 保持数字格式
+      influencer.followingCount || 0,
+      influencer.totalLikes || 0,
+      influencer.totalVideos || 0,
+      influencer.avgVideoViews || 0,
+      String(influencer.engagementRate || ''),
       influencer.primaryCategory || '',
-      influencer.tags?.map((tag: any) => tag.displayName).join(';') || '',
-      influencer.createdAt || ''
+      influencer.contentStyle ? JSON.stringify(influencer.contentStyle) : '',
+      influencer.contentLanguage || '',
+      influencer.tendencyCategory ? JSON.stringify(influencer.tendencyCategory) : '',
+      String(influencer.qualityScore || ''),
+      influencer.riskLevel || '',
+      influencer.blacklistReason || '',
+      influencer.dataSource || '',
+      String(influencer.lastDataSync || ''),
+      String(influencer.dataAccuracy || ''),
+      String(influencer.cooperateStatus || ''),
+      String(influencer.hasSign || ''),
+      String(influencer.lastCooperateTime || ''),
+      String(influencer.cooperateProductCount || ''),
+      String(influencer.fulfillCount || ''),
+      influencer.cooperateProductName || '',
+      String(influencer.correspondScore || ''),
+      String(influencer.avgFulfillDays || ''),
+      influencer.videoStyle ? JSON.stringify(influencer.videoStyle) : '',
+      influencer.videoStyleForUs ? JSON.stringify(influencer.videoStyleForUs) : '',
+      String(influencer.contentScore || ''),
+      String(influencer.orderScore || ''),
+      String(influencer.adsRoi || ''),
+      influencer.gmvTotal || '',
+      String(influencer.gmvCountryRank || ''),
+      influencer.gmvVideo || '',
+      influencer.gmvLive || '',
+      influencer.gpmVideo || '',
+      influencer.gpmLive || '',
+      String(influencer.status || ''),
+      influencer.notes || '',
+      influencer.tagNames || '', // 标签字段
+      String(influencer.createdAt || ''),
+      String(influencer.updatedAt || '')
     ]);
 
-    const csvContent = [csvHeaders, ...csvRows]
-      .map(row => row.map((field: any) => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    // 添加BOM以正确显示中文
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [csvHeaders, ...csvRows]
+      .map(row => row.map((field: any) => {
+        const strField = String(field);
+        // 如果包含逗号、换行符或引号，需要用引号包围
+        if (strField.includes(',') || strField.includes('\n') || strField.includes('"')) {
+          return `"${strField.replace(/"/g, '""')}"`;
+        }
+        return strField;
+      }).join(','))
       .join('\n');
 
     return new NextResponse(csvContent, {
@@ -300,78 +406,125 @@ async function handleImport(body: any) {
 
       for (const influencerData of influencersData) {
         try {
-          // 验证必需字段
-          if (!influencerData.platformUserId || !influencerData.platformId) {
-            errorDetails.push(`Missing required fields for record: ${JSON.stringify(influencerData)}`);
+          // 验证必需字段 - 只需要 platformUserId 和平台信息
+          const platformUserId = influencerData.platformUserId || influencerData['Platform User ID'];
+          const platform = influencerData.platformId || influencerData.Platform;
+          
+          if (!platformUserId || !platform) {
+            errorDetails.push(`Missing required fields (Platform User ID and Platform) for record: ${JSON.stringify(influencerData)}`);
             errors++;
             continue;
           }
 
-          // 查找平台
-          let platformId = influencerData.platformId;
+          // 查找平台 - 支持通过名称或ID查找
+          let platformId = platform;
           if (typeof platformId === 'string' && isNaN(Number(platformId))) {
             // 如果是平台名称，查找对应的ID
-            const platform = await tx.platform.findFirst({
-              where: { name: platformId }
+            const platformRecord = await tx.platform.findFirst({
+              where: { 
+                OR: [
+                  { name: platformId },
+                  { displayName: platformId }
+                ]
+              }
             });
-            if (!platform) {
-              errorDetails.push(`Platform not found: ${platformId}`);
+            
+            if (platformRecord) {
+              platformId = platformRecord.id.toString();
+            } else {
+              errorDetails.push(`Platform not found: ${platformId} for record: ${JSON.stringify(influencerData)}`);
               errors++;
               continue;
             }
-            platformId = platform.id;
           }
 
-          // 检查是否已存在
+          // 检查是否已存在 - 通过 platformUserId 和 platformId 组合判断
           const existingInfluencer = await tx.influencer.findFirst({
             where: {
-              platformUserId: influencerData.platformUserId,
+              platformUserId: String(platformUserId),
               platformId: BigInt(platformId)
             }
           });
 
+          // 解析JSON字段
+          const parseJsonField = (field: any) => {
+            if (!field) return null;
+            if (typeof field === 'string') {
+              try {
+                return JSON.parse(field);
+              } catch {
+                return null;
+              }
+            }
+            return field;
+          };
+
+          // 构建完整的数据载荷
           const influencerPayload = {
             platformId: BigInt(platformId),
-            platformUserId: influencerData.platformUserId,
-            username: influencerData.username || null,
-            displayName: influencerData.displayName || null,
-            avatarUrl: influencerData.avatarUrl || null,
-            bio: influencerData.bio || null,
-            whatsappAccount: influencerData.whatsappAccount || null,
-            email: influencerData.email || null,
-            phone: influencerData.phone || null,
-            wechat: influencerData.wechat || null,
-            telegram: influencerData.telegram || null,
-            country: influencerData.country || null,
-            region: influencerData.region || null,
-            city: influencerData.city || null,
-            timezone: influencerData.timezone || null,
-            gender: influencerData.gender || null,
-            ageRange: influencerData.ageRange || null,
-            language: influencerData.language || null,
-            followersCount: influencerData.followersCount ? Number(influencerData.followersCount) : 0,
-            followingCount: influencerData.followingCount ? Number(influencerData.followingCount) : 0,
-            totalLikes: influencerData.totalLikes ? BigInt(influencerData.totalLikes) : BigInt(0),
-            totalVideos: influencerData.totalVideos ? Number(influencerData.totalVideos) : 0,
-            avgVideoViews: influencerData.avgVideoViews ? Number(influencerData.avgVideoViews) : 0,
-            engagementRate: influencerData.engagementRate ? Number(influencerData.engagementRate) : null,
-            primaryCategory: influencerData.primaryCategory || null,
-            contentStyle: influencerData.contentStyle || null,
-            contentLanguage: influencerData.contentLanguage || null,
-            cooperationOpenness: influencerData.cooperationOpenness || null,
-            baseCooperationFee: influencerData.baseCooperationFee || null,
-            cooperationCurrency: influencerData.cooperationCurrency || null,
-            cooperationPreferences: influencerData.cooperationPreferences || null,
-            qualityScore: influencerData.qualityScore ? Number(influencerData.qualityScore) : null,
-            riskLevel: influencerData.riskLevel || null,
-            blacklistReason: influencerData.blacklistReason || null,
-            dataSource: influencerData.dataSource || 'IMPORT',
-            lastDataSync: influencerData.lastDataSync ? new Date(influencerData.lastDataSync) : new Date(),
-            dataAccuracy: influencerData.dataAccuracy ? Number(influencerData.dataAccuracy) : null,
-            status: influencerData.status || 'POTENTIAL',
-            platformSpecificData: influencerData.platformSpecificData || null,
-            notes: influencerData.notes || null,
-            updatedAt: new Date()
+            platformUserId: String(platformUserId),
+            username: influencerData.username || influencerData.Username || null,
+            displayName: influencerData.displayName || influencerData['Display Name'] || null,
+            avatarUrl: influencerData.avatarUrl || influencerData['Avatar URL'] || null,
+            bio: influencerData.bio || influencerData.Bio || null,
+            whatsappAccount: influencerData.whatsappAccount || influencerData['WhatsApp Account'] || null,
+            email: influencerData.email || influencerData.Email || null,
+            phone: influencerData.phone || influencerData.Phone || null,
+            wechat: influencerData.wechat || influencerData.WeChat || null,
+            telegram: influencerData.telegram || influencerData.Telegram || null,
+            country: influencerData.country || influencerData.Country || null,
+            region: influencerData.region || influencerData.Region || null,
+            city: influencerData.city || influencerData.City || null,
+            timezone: influencerData.timezone || influencerData.Timezone || null,
+            zipCode: influencerData.zipCode || influencerData['Zip Code'] || null,
+            province: influencerData.province || influencerData.Province || null,
+            street: influencerData.street || influencerData.Street || null,
+            address1: influencerData.address1 || influencerData['Address 1'] || null,
+            address2: influencerData.address2 || influencerData['Address 2'] || null,
+            receiverPhone: influencerData.receiverPhone || influencerData['Receiver Phone'] || null,
+            receiveName: influencerData.receiveName || influencerData['Receive Name'] || null,
+            gender: influencerData.gender || influencerData.Gender || null,
+            ageRange: influencerData.ageRange || influencerData['Age Range'] || null,
+            language: influencerData.language || influencerData.Language || null,
+            followersCount: Number(influencerData.followersCount || influencerData['Followers Count'] || 0),
+            followingCount: Number(influencerData.followingCount || influencerData['Following Count'] || 0),
+            totalLikes: Number(influencerData.totalLikes || influencerData['Total Likes'] || 0),
+            totalVideos: Number(influencerData.totalVideos || influencerData['Total Videos'] || 0),
+            avgVideoViews: Number(influencerData.avgVideoViews || influencerData['Avg Video Views'] || 0),
+            engagementRate: influencerData.engagementRate || influencerData['Engagement Rate'] ? Number(influencerData.engagementRate || influencerData['Engagement Rate']) : null,
+            primaryCategory: influencerData.primaryCategory || influencerData['Primary Category'] || null,
+            contentStyle: parseJsonField(influencerData.contentStyle || influencerData['Content Style']),
+            contentLanguage: influencerData.contentLanguage || influencerData['Content Language'] || null,
+            tendencyCategory: parseJsonField(influencerData.tendencyCategory || influencerData['Tendency Category']),
+            qualityScore: influencerData.qualityScore || influencerData['Quality Score'] ? Number(influencerData.qualityScore || influencerData['Quality Score']) : null,
+            riskLevel: influencerData.riskLevel || influencerData['Risk Level'] || 'LOW',
+            blacklistReason: influencerData.blacklistReason || influencerData['Blacklist Reason'] || null,
+            dataSource: influencerData.dataSource || influencerData['Data Source'] || 'import',
+            lastDataSync: influencerData.lastDataSync || influencerData['Last Data Sync'] ? Number(influencerData.lastDataSync || influencerData['Last Data Sync']) : null,
+            dataAccuracy: influencerData.dataAccuracy || influencerData['Data Accuracy'] ? Number(influencerData.dataAccuracy || influencerData['Data Accuracy']) : null,
+            cooperateStatus: influencerData.cooperateStatus || influencerData['Cooperate Status'] ? Number(influencerData.cooperateStatus || influencerData['Cooperate Status']) : null,
+            hasSign: influencerData.hasSign || influencerData['Has Sign'] ? Number(influencerData.hasSign || influencerData['Has Sign']) : null,
+            lastCooperateTime: influencerData.lastCooperateTime || influencerData['Last Cooperate Time'] ? Number(influencerData.lastCooperateTime || influencerData['Last Cooperate Time']) : null,
+            cooperateProductCount: influencerData.cooperateProductCount || influencerData['Cooperate Product Count'] ? Number(influencerData.cooperateProductCount || influencerData['Cooperate Product Count']) : null,
+            fulfillCount: influencerData.fulfillCount || influencerData['Fulfill Count'] ? Number(influencerData.fulfillCount || influencerData['Fulfill Count']) : null,
+            cooperateProductName: influencerData.cooperateProductName || influencerData['Cooperate Product Name'] || null,
+            correspondScore: influencerData.correspondScore || influencerData['Correspond Score'] ? Number(influencerData.correspondScore || influencerData['Correspond Score']) : null,
+            avgFulfillDays: influencerData.avgFulfillDays || influencerData['Avg Fulfill Days'] ? Number(influencerData.avgFulfillDays || influencerData['Avg Fulfill Days']) : null,
+            videoStyle: parseJsonField(influencerData.videoStyle || influencerData['Video Style']),
+            videoStyleForUs: parseJsonField(influencerData.videoStyleForUs || influencerData['Video Style For Us']),
+            contentScore: influencerData.contentScore || influencerData['Content Score'] ? Number(influencerData.contentScore || influencerData['Content Score']) : null,
+            orderScore: influencerData.orderScore || influencerData['Order Score'] ? Number(influencerData.orderScore || influencerData['Order Score']) : null,
+            adsRoi: influencerData.adsRoi || influencerData['Ads ROI'] ? Number(influencerData.adsRoi || influencerData['Ads ROI']) : null,
+            gmvTotal: influencerData.gmvTotal || influencerData['GMV Total'] || null,
+            gmvCountryRank: influencerData.gmvCountryRank || influencerData['GMV Country Rank'] ? Number(influencerData.gmvCountryRank || influencerData['GMV Country Rank']) : null,
+            gmvVideo: influencerData.gmvVideo || influencerData['GMV Video'] || null,
+            gmvLive: influencerData.gmvLive || influencerData['GMV Live'] || null,
+            gpmVideo: influencerData.gpmVideo || influencerData['GPM Video'] || null,
+            gpmLive: influencerData.gpmLive || influencerData['GPM Live'] || null,
+            status: influencerData.status || influencerData.Status ? Number(influencerData.status || influencerData.Status) : 1,
+            notes: influencerData.notes || influencerData.Notes || null,
+            platformSpecificData: parseJsonField(influencerData.platformSpecificData),
+            updatedAt: Math.floor(Date.now() / 1000)
           };
 
           if (existingInfluencer) {
@@ -387,7 +540,7 @@ async function handleImport(body: any) {
               data: {
                 id: generateId(),
                 ...influencerPayload,
-                createdAt: new Date()
+                createdAt: Math.floor(Date.now() / 1000)
               }
             });
             imported++;
@@ -417,6 +570,92 @@ async function handleImport(body: any) {
     return NextResponse.json(
       { 
         error: 'Failed to import data', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// 批量更新
+async function handleBatchUpdate(body: any) {
+  const { ids, updates } = body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return NextResponse.json(
+      { error: 'Influencer IDs are required' },
+      { status: 400 }
+    );
+  }
+
+  if (!updates || typeof updates !== 'object') {
+    return NextResponse.json(
+      { error: 'Updates data is required' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const result = await prisma.influencer.updateMany({
+      where: {
+        id: { in: ids.map((id: string) => BigInt(id)) }
+      },
+      data: {
+        ...updates,
+        updatedAt: Math.floor(Date.now() / 1000)
+      }
+    });
+
+    return NextResponse.json({
+      message: `Successfully updated ${result.count} influencer(s)`,
+      updatedCount: result.count
+    });
+  } catch (error) {
+    console.error('Error in batch update:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to update influencers', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// 批量删除（软删除）
+async function handleBatchDelete(body: any) {
+  const { influencerIds, ids } = body;
+  const targetIds = influencerIds || ids; // 支持两种参数名
+
+  if (!targetIds || !Array.isArray(targetIds) || targetIds.length === 0) {
+    return NextResponse.json(
+      { error: 'Influencer IDs are required' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // 使用软删除：将status设置为0
+    const result = await prisma.influencer.updateMany({
+      where: {
+        id: { in: targetIds.map((id: string) => BigInt(id)) },
+        status: 1 // 只更新当前有效的记录
+      },
+      data: {
+        status: 0,
+        updatedAt: Math.floor(Date.now() / 1000)
+      }
+    });
+
+    return NextResponse.json({
+      message: `Successfully deleted ${result.count} influencer(s)`,
+      deletedCount: result.count
+    });
+  } catch (error) {
+    console.error('Error in batch delete:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to delete influencers', 
         details: error instanceof Error ? error.message : 'Unknown error' 
       },
       { status: 500 }

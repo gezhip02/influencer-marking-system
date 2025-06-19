@@ -1,189 +1,162 @@
-// 达人打标管理系统 - Prisma Schema配置
-// 支持多数据库切换：PostgreSQL (Supabase), MySQL, SQLite
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  url      = "mysql://root:root@localhost:3306/influencer_marking_system"
 }
 
-// ============================================================================
-// 1. 用户和认证相关表
-// ============================================================================
-
 model User {
-  id            BigInt       @id
-  name          String?
-  email         String       @unique
-  emailVerified DateTime?
-  image         String?
-  username      String?      @unique
-  displayName   String?
-  role          Role          @default(USER)
-  department    String?      // 部门：商务部、市场部等
-  status        UserStatus    @default(ACTIVE)
-  
-  // 偏好设置
-  preferences   Json?        // MySQL支持Json类型
-  timezone      String?
-  language      String       @default("zh-CN")
-  
-  // 登录信息
-  lastLogin     DateTime?
-  loginCount    Int           @default(0)
-  
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id                  BigInt               @id
+  name                String?
+  email               String               @unique
+  emailVerified       DateTime?
+  image               String?
+  username            String?              @unique
+  displayName         String?
+  role                String               @default("USER")
+  department          String?
+  status              Int                  @default(1) // 0-无效，1-有效
+  preferences         Json?
+  timezone            String?
+  language            String               @default("zh-CN")
+  lastLogin           Int?
+  loginCount          Int                  @default(0)
+  createdAt           Int?
+  updatedAt           Int?
 
-  // 关系
-  accounts      Account[]
-  sessions      Session[]
-  influencers   Influencer[]    @relation("CreatedBy")
-  cooperationRecords CooperationRecord[]    @relation("CreatedBy")
-  cooperationProjects CooperationProject[]    @relation("CreatedBy")
-  communicationLogs CommunicationLog[]    @relation("CreatedBy")
-  tags          Tag[]           @relation("CreatedBy")
-
+  @@index([status])
   @@map("users")
 }
 
 model Account {
-  id                BigInt    @id
-  userId            BigInt
+  id                BigInt  @id
+  userId            BigInt  // 关联到User.id，但没有外键约束
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?   @db.Text
-  access_token      String?   @db.Text
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?   @db.Text
+  id_token          String? @db.Text
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            Int     @default(1) // 0-无效，1-有效
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([status])
   @@map("accounts")
 }
 
 model Session {
-  id           BigInt    @id
-  sessionToken String    @unique
-  userId       BigInt
+  id           BigInt   @id
+  sessionToken String   @unique
+  userId       BigInt   // 关联到User.id，但没有外键约束
   expires      DateTime
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       Int      @default(1) // 0-无效，1-有效
 
+  @@index([userId])
+  @@index([status])
   @@map("sessions")
 }
 
 model VerificationToken {
   identifier String
-  token      String       @unique
+  token      String   @unique
   expires    DateTime
+  status     Int      @default(1) // 0-无效，1-有效
 
   @@unique([identifier, token])
+  @@index([status])
   @@map("verificationtokens")
 }
 
-// ============================================================================
-// 2. 平台和达人相关表
-// ============================================================================
-
 model Platform {
-  id          BigInt       @id
-  name        String       @unique // tiktok, douyin, kuaishou, shipinhao
-  displayName String       // TikTok, 抖音, 快手, 视频号
-  apiEndpoint String?
-  apiConfig   Json?        // MySQL支持Json类型
-  status      PlatformStatus @default(ACTIVE)
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             BigInt       @id
+  name           String       @unique
+  displayName    String
+  apiEndpoint    String?
+  apiConfig      Json?
+  status         Int          @default(1) // 0-无效，1-有效
+  createdAt      Int?
+  updatedAt      Int?
 
-  // 关系 
-  influencers Influencer[]
-
+  @@index([status])
   @@map("platforms")
 }
 
 model Influencer {
-  id                BigInt    @id
-  platformId        BigInt
-  platformUserId    String    // 平台上的用户ID（如TikTok ID）
-  username          String?
-  displayName       String?
-  avatarUrl         String?
-  bio               String?   @db.Text
-  
-  // 联系方式
-  whatsappAccount   String?
-  email             String?
-  phone             String?
-  wechat            String?
-  telegram          String?
-  
-  // 地理信息
-  country           String?
-  region            String?
-  city              String?
-  timezone          String?
-  
-  // 基础属性
-  gender            String?
-  ageRange          String?
-  language          String?
-  
-  // 粉丝数据
-  followersCount    Int        @default(0)
-  followingCount    Int        @default(0)
-  totalLikes        BigInt     @default(0) // MySQL支持BigInt
-  totalVideos       Int        @default(0)
-  avgVideoViews     Int        @default(0)
-  engagementRate    Float?     // MySQL使用Float
-  
-  // 内容属性
-  primaryCategory   String?
-  contentStyle      Json?      // MySQL支持Json类型
-  contentLanguage   String?
-  
-  // 商业合作
-  cooperationOpenness     String?    @default("unknown") // high, medium, low, unknown
-  baseCooperationFee      Decimal?   // MySQL使用Decimal精确计算
-  cooperationCurrency     String?    @default("USD")
-  cooperationPreferences  Json?      // MySQL支持Json类型
-  
-  // 质量评估
-  qualityScore      Float?       // MySQL使用Float
-  riskLevel         String?      @default("unknown") // low, medium, high, unknown
-  blacklistReason   String?      @db.Text
-  
-  // 数据来源
-  dataSource        String       @default("manual") // fastmoss, excel, manual
-  lastDataSync      DateTime?
-  dataAccuracy      Float?       // 数据准确度 0-1
-  
-  // 系统字段
-  status            InfluencerStatus @default(ACTIVE)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         BigInt?
-  updatedBy         BigInt?
-  
-  // 扩展字段
-  platformSpecificData Json?      // MySQL支持Json类型
-  notes             String?        @db.Text
-
-  // 关系
-  platform          Platform         @relation(fields: [platformId], references: [id])
-  creator           User?            @relation("CreatedBy", fields: [createdBy], references: [id])
-  tags              InfluencerTag[]
-  metricsHistory    InfluencerMetricsHistory[]
-  cooperationRecords CooperationRecord[]
-  communicationLogs CommunicationLog[]
+  id                    BigInt                     @id
+  platformId            BigInt                     // 关联到Platform.id，但没有外键约束
+  platformUserId        String
+  username              String?
+  displayName           String?
+  avatarUrl             String?
+  bio                   String?                    @db.Text
+  whatsappAccount       String?
+  email                 String?
+  phone                 String?
+  wechat                String?
+  telegram              String?
+  country               String?
+  region                String?
+  city                  String?
+  timezone              String?
+  zipCode               String?
+  province              String?
+  street                String?
+  address1              String?
+  address2              String?
+  receiverPhone         String?
+  receiveName           String?
+  gender                String?
+  ageRange              String?
+  language              String?
+  followersCount        Int                        @default(0)
+  followingCount        Int                        @default(0)
+  totalLikes            Int                        @default(0) // 总获赞数
+  totalVideos           Int                        @default(0)
+  avgVideoViews         Int                        @default(0)
+  engagementRate        Float?                     // 互动率 (0-100)
+  primaryCategory       String?
+  contentStyle          Json?
+  contentLanguage       String?
+  tendencyCategory      Json?
+  qualityScore          Float?
+  riskLevel             String                     @default("unknown")
+  blacklistReason       String?                    @db.Text
+  dataSource            String                     @default("manual")
+  lastDataSync          Int?
+  dataAccuracy          Float?
+  cooperateStatus       Int?
+  hasSign               Int?
+  lastCooperateTime     Int?
+  cooperateProductCount Int?
+  fulfillCount          Int?
+  cooperateProductName  String?
+  correspondScore       Float?
+  avgFulfillDays        Int?
+  videoStyle            Json?
+  videoStyleForUs       Json?
+  contentScore          Float?
+  orderScore            Float?
+  adsRoi                Float?
+  gmvTotal              String?
+  gmvCountryRank        Int?
+  gmvVideo              String?
+  gmvLive               String?
+  gpmVideo              String?
+  gpmLive               String?
+  status                Int                        @default(1) // 0-无效，1-有效
+  createdAt             Int?
+  updatedAt             Int?
+  createdBy             BigInt?                    // 关联到User.id，但没有外键约束
+  updatedBy             BigInt?
+  platformSpecificData  Json?
+  notes                 String?                    @db.Text
 
   @@unique([platformId, platformUserId])
   @@index([platformId])
@@ -193,259 +166,202 @@ model Influencer {
   @@index([qualityScore])
   @@index([country])
   @@index([createdAt])
+  @@index([createdBy])
   @@map("influencers")
 }
 
-// 达人数据历史记录表
 model InfluencerMetricsHistory {
-  id              BigInt      @id
-  influencerId    BigInt
-  followersCount  Int
-  followingCount  Int
-  totalLikes      Int          // 改为Int
-  totalVideos     Int
-  avgVideoViews   Int
-  engagementRate  Float?         // MySQL使用Float
-  qualityScore    Float?         // MySQL使用Float
-  recordDate      DateTime     @default(now())
-  dataSource      String?
-  
-  // 关系
-  influencer      Influencer     @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  
+  id             BigInt     @id
+  influencerId   BigInt     // 关联到Influencer.id，但没有外键约束
+  followersCount Int
+  followingCount Int
+  totalLikes     Int
+  totalVideos    Int
+  avgVideoViews  Int
+  engagementRate Float?
+  recordDate     Int
+  status         Int        @default(1) // 0-无效，1-有效
+  createdAt      Int?
+
   @@index([influencerId])
   @@index([recordDate])
+  @@index([status])
   @@map("influencer_metrics_history")
 }
 
-// ============================================================================
-// 3. 标签系统
-// ============================================================================
-
 model Tag {
-  id          BigInt       @id
-  name        String       @unique
-  displayName String?
-  description String?
-  category    TagType      @default(CONTENT)
-  color       String?      // 标签颜色
-  icon        String?      // 图标名称
-  
-  // 层级关系
-  parentId    BigInt?
-  parent      Tag?           @relation("TagHierarchy", fields: [parentId], references: [id])
-  children    Tag[]          @relation("TagHierarchy")
-  
-  // 系统字段
-  status      TagStatus      @default(ACTIVE)
-  sortOrder   Int            @default(0)
-  isSystem    Boolean        @default(false) // 是否为系统预设标签
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  createdBy   BigInt?
-  
-  // 关系
-  creator     User?          @relation("CreatedBy", fields: [createdBy], references: [id])
-  influencers InfluencerTag[]
+  id                 BigInt                  @id
+  name               String                  @unique
+  displayName        String?
+  description        String?
+  category           String                  @default("CONTENT")
+  color              String?
+  icon               String?
+  parentId           BigInt?                 // 关联到Tag.id（自引用），但没有外键约束
+  status             Int                     @default(1) // 0-无效，1-有效
+  sortOrder          Int                     @default(0)
+  isSystem           Boolean                 @default(false)
+  createdAt          Int?
+  updatedAt          Int?
+  createdBy          BigInt?                 // 关联到User.id，但没有外键约束
 
   @@index([category])
-  @@index([status])
   @@index([parentId])
+  @@index([status])
+  @@index([sortOrder])
+  @@index([createdBy])
   @@map("tags")
 }
 
-// 达人标签关联表（多对多）
 model InfluencerTag {
-  id           BigInt      @id
-  influencerId BigInt
-  tagId        BigInt
-  confidence   Float?       @default(1.0) // 标签置信度 0-1
-  source       String?      @default("manual") // manual, ai, import
-  createdAt    DateTime     @default(now())
-  createdBy    BigInt?
-  
-  // 关系
-  influencer   Influencer     @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  tag          Tag            @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
+  id           BigInt     @id
+  influencerId BigInt     // 关联到Influencer.id，但没有外键约束
+  tagId        BigInt     // 关联到Tag.id，但没有外键约束
+  confidence   Float?     @default(1)
+  source       String?    @default("manual")
+  status       Int        @default(1) // 0-无效，1-有效
+  createdAt    Int?
+  createdBy    BigInt?    // 关联到User.id，但没有外键约束
+
   @@unique([influencerId, tagId])
   @@index([influencerId])
   @@index([tagId])
+  @@index([status])
   @@map("influencer_tags")
 }
 
-// ============================================================================
-// 4. 合作项目和记录
-// ============================================================================
+model FulfillmentRecordTag {
+  id                    BigInt            @id
+  fulfillmentRecordId   BigInt            // 关联到FulfillmentRecord.id，但没有外键约束
+  tagId                 BigInt            // 关联到Tag.id，但没有外键约束
+  confidence            Float?            @default(1)
+  source                String?           @default("manual")
+  status                Int               @default(1) // 0-无效，1-有效
+  createdAt             Int?
+  createdBy             BigInt?           // 关联到User.id，但没有外键约束
 
-model CooperationProject {
-  id              BigInt         @id
-  name            String
-  description     String?
-  brand           String?
-  campaign        String?
-  budget          Decimal?         // MySQL使用Decimal精确计算
-  currency        String?          @default("USD")
-  startDate       DateTime?
-  endDate         DateTime?
-  status          ProjectStatus    @default(PLANNING)
-  priority        String?          @default("medium") // low, medium, high
-  
-  // 目标和要求
-  targetAudience  String?
+  @@unique([fulfillmentRecordId, tagId])
+  @@index([fulfillmentRecordId])
+  @@index([tagId])
+  @@index([status])
+  @@map("fulfillment_record_tags")
+}
+
+model CooperationProduct {
+  id                  BigInt              @id
+  name                String
+  description         String?
+  brand               String?
+  category            String?
+  price               Float?
+  currency            String?             @default("USD")
+  budget              Float?
+  targetAudience      String?
   contentRequirements String?
-  deliverables    Json?            // MySQL支持Json类型
-  kpis            Json?            // MySQL支持Json类型
-  
-  // 系统字段
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  createdBy       BigInt?
-  
-  // 关系
-  creator         User?            @relation("CreatedBy", fields: [createdBy], references: [id])
-  cooperationRecords CooperationRecord[]
-  
+  deliverables        Json?
+  kpis                Json?
+  startDate           Int?
+  endDate             Int?
+  status              Int                 @default(1) // 0-无效，1-有效
+  priority            String?             @default("medium")
+  createdAt           Int?
+  updatedAt           Int?
+  createdBy           BigInt?             // 关联到User.id，但没有外键约束
+
   @@index([status])
   @@index([startDate])
-  @@map("cooperation_projects")
+  @@index([category])
+  @@index([createdBy])
+  @@map("cooperation_products")
 }
 
-model CooperationRecord {
-  id                BigInt            @id
-  influencerId      BigInt
-  projectId         BigInt?
-  
-  // 合作基本信息
-  cooperationType   String?             // post, story, video, live, etc.
-  platform          String?
-  status            CooperationStatus   @default(CONTACTED)
-  priority          String?             @default("medium")
-  
-  // 商务信息
-  budget            Decimal?            // MySQL使用Decimal精确计算
-  currency          String?             @default("USD")
-  negotiationNotes  String?
-  contractSigned    Boolean             @default(false)
-  paymentStatus     String?             @default("pending")
-  
-  // 时间安排
-  contactDate       DateTime?
-  responseDate      DateTime?
-  agreementDate     DateTime?
-  contentDeadline   DateTime?
-  publishDate       DateTime?
-  
-  // 内容要求
-  contentBrief      String?
-  contentDraft      String?
-  contentFinal      String?
-  contentUrl        String?
-  
-  // 效果数据
-  views             Int?                @default(0)
-  likes             Int?                @default(0)
-  comments          Int?                @default(0)
-  shares            Int?                @default(0)
-  clicks            Int?                @default(0)
-  conversions       Int?                @default(0)
-  conversionRate    Float?              // MySQL使用Float
-  roi               Float?              // MySQL使用Float
-  
-  // 评价
-  performanceScore  Float?              // 1-10分
-  cooperationRating Float?              // 1-5星
-  feedback          String?
-  
-  // 系统字段
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         BigInt?
-  
-  // 关系
-  influencer        Influencer          @relation(fields: [influencerId], references: [id])
-  project           CooperationProject?  @relation(fields: [projectId], references: [id])
-  creator           User?               @relation("CreatedBy", fields: [createdBy], references: [id])
-  communicationLogs CommunicationLog[]
-  
+model FulfillmentRecord {
+  id                 BigInt                  @id
+  influencerId       BigInt                  // 关联到Influencer.id，但没有外键约束
+  productId          BigInt                  // 关联到CooperationProduct.id，但没有外键约束
+  productName        String
+  cooperationType    String
+  fulfillmentDesc    String?
+  fulfillmentStatus  String?
+  needSample         Int?
+  cooperateStatus    Int?
+  hasSign            Int?
+  actualFulfillTime  Int?
+  correspondScore    Float?
+  fulfillDays        Int?
+  sampleDeliveryTime Int?
+  firstTouchTime     Int?
+  contactDate        Int?
+  videoStyle         String?
+  videoStyleForUs    String?
+  contentScore       Float?
+  orderScore         Float?
+  adsRoi             Float?
+  videoQuantityDesc  String?
+  liveQuantityDesc   String?
+  ownerId            BigInt?
+  ownerName          String?
+  fulfillRemark      String?
+  status             Int                     @default(1) // 0-无效，1-有效
+  createdAt          Int?
+  updatedAt          Int?
+  createdBy          BigInt?                 // 关联到User.id，但没有外键约束
+
   @@index([influencerId])
-  @@index([projectId])
+  @@index([productId])
   @@index([status])
   @@index([contactDate])
-  @@map("cooperation_records")
+  @@index([fulfillmentStatus])
+  @@index([createdBy])
+  @@map("fulfillment_records")
 }
 
-// ============================================================================
-// 5. 沟通记录
-// ============================================================================
-
 model CommunicationLog {
-  id                   BigInt             @id
-  influencerId         BigInt
-  cooperationRecordId  BigInt?
-  
-  // 沟通信息
-  type                 String             // email, whatsapp, telegram, wechat, phone, meeting
-  direction            String             // inbound, outbound
-  subject              String?
-  content              String
-  attachments          Json?              // MySQL支持Json类型
-  
-  // 状态
-  status               String?            @default("sent") // sent, delivered, read, replied
-  isImportant          Boolean            @default(false)
-  isFollowUpRequired   Boolean            @default(false)
-  followUpDate         DateTime?
-  
-  // 系统字段
-  communicationDate    DateTime           @default(now())
-  createdAt            DateTime           @default(now())
-  createdBy            BigInt?
-  
-  // 关系
-  influencer           Influencer         @relation(fields: [influencerId], references: [id])
-  cooperationRecord    CooperationRecord?  @relation(fields: [cooperationRecordId], references: [id])
-  creator              User?              @relation("CreatedBy", fields: [createdBy], references: [id])
-  
+  id                  BigInt             @id
+  influencerId        BigInt             // 关联到Influencer.id，但没有外键约束
+  fulfillmentRecordId BigInt?            // 关联到FulfillmentRecord.id，但没有外键约束
+  type                String
+  direction           String
+  subject             String?
+  content             String
+  attachments         Json?
+  status              Int                @default(1) // 0-无效，1-有效
+  isImportant         Boolean            @default(false)
+  isFollowUpRequired  Boolean            @default(false)
+  followUpDate        Int?
+  communicationDate   Int
+  createdAt           Int?
+  createdBy           BigInt?            // 关联到User.id，但没有外键约束
+
   @@index([influencerId])
-  @@index([cooperationRecordId])
+  @@index([fulfillmentRecordId])
   @@index([communicationDate])
   @@index([type])
+  @@index([status])
+  @@index([createdBy])
   @@map("communication_logs")
 }
 
-// ============================================================================
-// 6. 数据导入和系统管理
-// ============================================================================
-
 model ImportRecord {
-  id              BigInt        @id
-  fileName        String
-  fileSize        Int?
-  fileType        String?        // csv, xlsx, json
-  importType      String         // influencers, tags, cooperation_records
-  status          ImportStatus     @default(PENDING)
-  
-  // 处理统计
-  totalRows       Int?             @default(0)
-  successRows     Int?             @default(0)
-  errorRows       Int?             @default(0)
-  duplicateRows   Int?             @default(0)
-  
-  // 处理结果
-  errorLog        String?          // 改为String，SQLite不支持Json
-  mapping         String?          // 字段映射配置，改为String
-  
-  // 时间记录
-  startTime       DateTime?
-  endTime         DateTime?
-  processingTime  Int?             // 处理时间（秒）
-  
-  // 系统字段
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  createdBy       BigInt?
-  
+  id             BigInt  @id
+  fileName       String
+  fileSize       Int?
+  fileType       String?
+  importType     String
+  status         Int     @default(0) // 0-处理中，1-成功，2-失败
+  totalRows      Int?    @default(0)
+  successRows    Int?    @default(0)
+  errorRows      Int?    @default(0)
+  duplicateRows  Int?    @default(0)
+  errorLog       String? @db.Text
+  mapping        String? @db.Text
+  startTime      Int?
+  endTime        Int?
+  processingTime Int?
+  createdAt      Int?
+  updatedAt      Int?
+  createdBy      BigInt? // 关联到User.id，但没有外键约束
+
   @@index([importType])
   @@index([status])
   @@index([createdAt])
@@ -453,109 +369,38 @@ model ImportRecord {
 }
 
 model SystemConfig {
-  id          BigInt       @id
-  key         String       @unique
+  id          BigInt  @id
+  key         String  @unique
   value       String
-  category    String?       @default("general")
+  category    String? @default("general")
   description String?
-  isPublic    Boolean        @default(false)
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  
+  isPublic    Boolean @default(false)
+  status      Int     @default(1) // 0-无效，1-有效
+  createdAt   Int?
+  updatedAt   Int?
+
   @@index([category])
+  @@index([status])
   @@map("system_configs")
 }
 
 model AuditLog {
-  id          BigInt       @id
-  userId      BigInt?
-  action      String        // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
-  resource    String        // influencers, tags, users, etc.
-  resourceId  BigInt?
-  oldValues   String?        // 改为String，SQLite不支持Json
-  newValues   String?        // 改为String，SQLite不支持Json
-  ip          String?
-  userAgent   String?
-  
-  createdAt   DateTime       @default(now())
-  
+  id         BigInt  @id
+  userId     BigInt? // 关联到User.id，但没有外键约束
+  action     String
+  resource   String
+  resourceId BigInt?
+  oldValues  String? @db.Text
+  newValues  String? @db.Text
+  ip         String?
+  userAgent  String?
+  status     Int     @default(1) // 0-无效，1-有效
+  createdAt  Int?
+
   @@index([userId])
   @@index([action])
   @@index([resource])
   @@index([createdAt])
+  @@index([status])
   @@map("audit_logs")
-}
-
-// ============================================================================
-// 7. 枚举定义
-// ============================================================================
-
-enum Role {
-  ADMIN
-  MANAGER
-  USER
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
-}
-
-enum PlatformStatus {
-  ACTIVE
-  INACTIVE
-  MAINTENANCE
-}
-
-enum InfluencerStatus {
-  ACTIVE      // 活跃
-  INACTIVE    // 不活跃
-  BLACKLISTED // 黑名单
-  POTENTIAL   // 潜在合作
-}
-
-enum TagType {
-  CONTENT     // 内容类型：美妆、科技、美食等
-  AUDIENCE    // 受众群体：女性、年轻人、高收入等
-  PERFORMANCE // 表现指标：高转化、高互动等
-  INDUSTRY    // 行业分类
-  GEOGRAPHY   // 地理位置
-  COOPERATION // 合作相关：易合作、高要求等
-}
-
-enum TagStatus {
-  ACTIVE
-  INACTIVE
-  DEPRECATED
-}
-
-enum ProjectStatus {
-  PLANNING    // 规划中
-  RECRUITING  // 招募中
-  EXECUTING   // 执行中
-  COMPLETED   // 已完成
-  CANCELLED   // 已取消
-  PAUSED      // 已暂停
-}
-
-enum CooperationStatus {
-  CONTACTED   // 已联系
-  RESPONDED   // 已回复
-  NEGOTIATING // 协商中
-  AGREED      // 已同意
-  CONTRACTED  // 已签约
-  EXECUTING   // 执行中
-  COMPLETED   // 已完成
-  REJECTED    // 已拒绝
-  CANCELLED   // 已取消
-}
-
-enum ImportStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  CANCELLED
 }

@@ -7,13 +7,16 @@ export async function GET(request: NextRequest) {
     // 获取所有活跃的平台
     const platforms = await prisma.platform.findMany({
       where: {
-        status: 'ACTIVE'
+        status: 1
       },
       select: {
         id: true,
         name: true,
         displayName: true,
-        status: true
+        status: true,
+        apiEndpoint: true,
+        createdAt: true,
+        updatedAt: true
       },
       orderBy: {
         displayName: 'asc'

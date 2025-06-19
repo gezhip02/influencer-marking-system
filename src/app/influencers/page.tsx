@@ -5,6 +5,7 @@ import { Search, Filter, Plus, Users, TrendingUp, Calendar, Tag, Eye, Edit3, Tra
 import { useQueryState } from 'nuqs';
 import Toast, { useToast } from '@/components/ui/toast';
 import CreateInfluencerForm, { InfluencerFormData } from '@/components/influencers/create-influencer-form';
+import BatchOperations from '@/components/influencers/batch-operations';
 
 
 interface Platform {
@@ -62,10 +63,8 @@ interface Influencer {
   contentLanguage?: string;
   
   // 商业合作
-  cooperationOpenness?: string;
-  baseCooperationFee?: number;
-  cooperationCurrency?: string;
-  cooperationPreferences?: any;
+
+  // 已移除不存在的字段: baseCooperationFee, cooperationCurrency, cooperationPreferences
   
   // 质量评估
   qualityScore?: number;
@@ -89,7 +88,7 @@ interface Influencer {
   notes?: string;
   
   // 关联数据
-  tags: TagData[];
+  tags?: TagData[];
   cooperationCount?: number;
 }
 
@@ -283,6 +282,11 @@ function InfluencersList() {
   const [isBatchOperationsOpen, setIsBatchOperationsOpen] = useState(false);
   const [batchOperationLoading, setBatchOperationLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  
+  // 快捷标签操作状态
+  const [quickTagInfluencer, setQuickTagInfluencer] = useState<string | null>(null);
+  const [showQuickTagModal, setShowQuickTagModal] = useState(false);
+  const [selectedQuickTags, setSelectedQuickTags] = useState<string[]>([]);
 
   // 获取平台列表
   const fetchPlatforms = useCallback(async () => {
@@ -303,7 +307,8 @@ function InfluencersList() {
       const response = await fetch('/api/tags');
       if (response.ok) {
         const data = await response.json();
-        setAvailableTags(data.tags || []);
+        // 修复：API返回的是 { success: true, data: [...] } 格式
+        setAvailableTags(data.data || []);
       }
     } catch (error) {
       console.error('获取标签列表失败:', error);
@@ -335,11 +340,24 @@ function InfluencersList() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data: ApiResponse = await response.json();
+      const data = await response.json();
       console.log('获取到的数据:', data);
-      setInfluencers(data.influencers || []);
-      setStats(data.stats || { total: 0, active: 0, contacted: 0, totalTags: 0 });
-      setPagination(data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
+      
+      // API返回格式: { success: true, data: { items: [], total, page, limit, pages }, stats: {} }
+      if (data.success && data.data) {
+        setInfluencers(data.data.items || []);
+        setStats(data.stats || { total: 0, active: 0, contacted: 0, totalTags: 0 });
+        setPagination({
+          page: data.data.page || 1,
+          limit: data.data.limit || 10,
+          total: data.data.total || 0,
+          pages: data.data.pages || 0
+        });
+      } else {
+        setInfluencers([]);
+        setStats({ total: 0, active: 0, contacted: 0, totalTags: 0 });
+        setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
+      }
     } catch (err) {
       console.error('获取达人数据失败:', err);
       setError('获取达人数据失败，请稍后重试');
@@ -462,6 +480,77 @@ function InfluencersList() {
     setters.setPage(1);
   }, [setters]);
 
+  // 快捷添加标签
+  const handleQuickAddTag = useCallback((influencerId: string) => {
+    setQuickTagInfluencer(influencerId);
+    setSelectedQuickTags([]); // 重置选择的标签
+    setShowQuickTagModal(true);
+  }, []);
+
+  // 快捷移除标签
+  const handleQuickRemoveTag = useCallback(async (influencerId: string, tagId: string) => {
+    try {
+      const response = await fetch('/api/influencers/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'removeTags',
+          influencerIds: [influencerId],
+          tagIds: [tagId]
+        })
+      });
+
+      if (response.ok) {
+        await fetchInfluencers(); // 刷新列表
+        showSuccess('标签移除成功！');
+      } else {
+        throw new Error('移除标签失败');
+      }
+    } catch (error) {
+      console.error('移除标签失败:', error);
+      showError('移除标签失败，请稍后重试');
+    }
+  }, [fetchInfluencers, showSuccess, showError]);
+
+  // 处理快捷标签添加
+  const handleQuickTagSubmit = useCallback(async () => {
+    if (!quickTagInfluencer || selectedQuickTags.length === 0) return;
+
+    try {
+      const response = await fetch('/api/influencers/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addTags',
+          influencerIds: [quickTagInfluencer],
+          tagIds: selectedQuickTags
+        })
+      });
+
+      if (response.ok) {
+        await fetchInfluencers(); // 刷新列表
+        showSuccess('标签添加成功！');
+        setShowQuickTagModal(false);
+        setQuickTagInfluencer(null);
+        setSelectedQuickTags([]);
+      } else {
+        throw new Error('添加标签失败');
+      }
+    } catch (error) {
+      console.error('添加标签失败:', error);
+      showError('添加标签失败，请稍后重试');
+    }
+  }, [quickTagInfluencer, selectedQuickTags, fetchInfluencers, showSuccess, showError]);
+
+  // 处理快捷标签选择切换
+  const handleQuickTagToggle = useCallback((tagId: string) => {
+    setSelectedQuickTags(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  }, []);
+
   // 编辑达人
   const handleEditInfluencer = useCallback((influencer: Influencer) => {
     setEditingInfluencer(influencer);
@@ -560,10 +649,14 @@ function InfluencersList() {
   const handleBatchAddTags = useCallback(async (tagIds: string[]) => {
     setBatchOperationLoading(true);
     try {
-      const response = await fetch('/api/influencers/batch?action=add-tags', {
+      const response = await fetch('/api/influencers/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ influencerIds: selectedInfluencers, tagIds }),
+        body: JSON.stringify({ 
+          action: 'addTags',
+          influencerIds: selectedInfluencers, 
+          tagIds 
+        }),
       });
       if (!response.ok) throw new Error('批量添加标签失败');
       await fetchInfluencers();
@@ -578,10 +671,14 @@ function InfluencersList() {
   const handleBatchRemoveTags = useCallback(async (tagIds: string[]) => {
     setBatchOperationLoading(true);
     try {
-      const response = await fetch('/api/influencers/batch?action=remove-tags', {
+      const response = await fetch('/api/influencers/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ influencerIds: selectedInfluencers, tagIds }),
+        body: JSON.stringify({ 
+          action: 'removeTags',
+          influencerIds: selectedInfluencers, 
+          tagIds 
+        }),
       });
       if (!response.ok) throw new Error('批量移除标签失败');
       await fetchInfluencers();
@@ -593,37 +690,31 @@ function InfluencersList() {
     }
   }, [selectedInfluencers, fetchInfluencers, showSuccess, showError]);
 
-  const handleBatchUpdateStatus = useCallback(async (status: string) => {
-    setBatchOperationLoading(true);
-    try {
-      const response = await fetch('/api/influencers/batch?action=update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ influencerIds: selectedInfluencers, status }),
-      });
-      if (!response.ok) throw new Error('批量更新状态失败');
-      await fetchInfluencers();
-      showSuccess('批量更新状态成功！');
-    } catch (error) {
-      showError('批量更新状态失败，请稍后重试');
-    } finally {
-      setBatchOperationLoading(false);
-    }
-  }, [selectedInfluencers, fetchInfluencers, showSuccess, showError]);
-
   const handleBatchDelete = useCallback(async () => {
     setBatchOperationLoading(true);
     try {
-      const response = await fetch(`/api/influencers?ids=${selectedInfluencers.join(',')}`, {
-        method: 'DELETE',
+      const response = await fetch('/api/influencers/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'delete',
+          influencerIds: selectedInfluencers 
+        }),
       });
-      if (!response.ok) throw new Error('批量删除失败');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '批量删除失败');
+      }
+      
+      const result = await response.json();
       setSelectedInfluencers([]);
       setIsBatchOperationsOpen(false);
       await fetchInfluencers();
-      showSuccess('批量删除成功！');
+      showSuccess(`批量删除成功！删除了 ${result.deletedCount} 个达人`);
     } catch (error) {
-      showError('批量删除失败，请稍后重试');
+      console.error('Batch delete error:', error);
+      showError(error instanceof Error ? error.message : '批量删除失败，请稍后重试');
     } finally {
       setBatchOperationLoading(false);
     }
@@ -632,10 +723,14 @@ function InfluencersList() {
   const handleBatchExport = useCallback(async (format: 'json' | 'csv') => {
     setBatchOperationLoading(true);
     try {
-      const response = await fetch('/api/influencers/batch?action=export', {
+      const response = await fetch('/api/influencers/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ influencerIds: selectedInfluencers, format }),
+        body: JSON.stringify({ 
+          action: 'export',
+          influencerIds: selectedInfluencers, 
+          format 
+        }),
       });
       if (!response.ok) throw new Error('导出失败');
 
@@ -697,10 +792,11 @@ function InfluencersList() {
         throw new Error('不支持的文件格式');
       }
 
-      const response = await fetch('/api/influencers/batch?action=import', {
+      const response = await fetch('/api/influencers/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          action: 'import',
           data: importData, 
           format: file.name.endsWith('.csv') ? 'csv' : 'json' 
         }),
@@ -1165,24 +1261,34 @@ function InfluencersList() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex flex-wrap gap-1 max-w-xs">
-                          {influencer.tags.slice(0, 2).map((tag) => (
+                          {(influencer.tags || []).slice(0, 2).map((tag) => (
                             <span
                               key={tag.id}
-                              className="inline-flex px-2 py-1 text-xs font-medium rounded-full"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full group cursor-pointer hover:opacity-80"
                               style={{ 
                                 backgroundColor: `${tag.color}20`,
                                 color: tag.color,
                                 border: `1px solid ${tag.color}40`
                               }}
+                              onClick={() => handleQuickRemoveTag(influencer.id, tag.id)}
+                              title={`点击移除标签: ${tag.displayName}`}
                             >
                               {tag.displayName}
+                              <span className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-red-500">×</span>
                             </span>
                           ))}
-                          {influencer.tags.length > 2 && (
+                          {(influencer.tags || []).length > 2 && (
                             <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                              +{influencer.tags.length - 2}
+                              +{(influencer.tags || []).length - 2}
                             </span>
                           )}
+                          <button
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 transition-colors"
+                            onClick={() => handleQuickAddTag(influencer.id)}
+                            title="快速添加标签"
+                          >
+                            + 标签
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1250,38 +1356,149 @@ function InfluencersList() {
           )}
         </div>
 
-        {/* 简单分页信息 */}
+        {/* 完整分页控件 */}
         {pagination.total > 0 && (
           <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6 rounded-lg shadow">
             <div className="flex-1 flex justify-between sm:hidden">
               <button 
                 disabled={pagination.page <= 1}
+                onClick={() => setters.setPage(pagination.page - 1)}
                 className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 上一页
               </button>
               <button 
                 disabled={pagination.page >= pagination.pages}
+                onClick={() => setters.setPage(pagination.page + 1)}
                 className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 下一页
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  显示第 <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> 到{' '}
-                  <span className="font-medium">
-                    {Math.min(pagination.page * pagination.limit, pagination.total)}
-                  </span> 条，共{' '}
-                  <span className="font-medium">{pagination.total}</span> 条记录
-                </p>
+              <div className="flex items-center space-x-6">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    显示第 <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> 到{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.page * pagination.limit, pagination.total)}
+                    </span> 条，共{' '}
+                    <span className="font-medium">{pagination.total}</span> 条记录
+                  </p>
+                </div>
+                
+                {/* 每页显示条数选择 */}
+                <div className="flex items-center space-x-2">
+                  <label htmlFor="page-size" className="text-sm text-gray-700">每页显示:</label>
+                  <select
+                    id="page-size"
+                    value={filters.limit}
+                    onChange={(e) => {
+                      setters.setLimit(parseInt(e.target.value));
+                      setters.setPage(1); // 重置到第一页
+                    }}
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-gray-700">条</span>
+                </div>
               </div>
+              
+              {/* 页码导航 */}
               <div>
-                <p className="text-sm text-gray-700">
-                  第 <span className="font-medium">{pagination.page}</span> 页，共{' '}
-                  <span className="font-medium">{pagination.pages}</span> 页
-                </p>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  {/* 上一页 */}
+                  <button
+                    disabled={pagination.page <= 1}
+                    onClick={() => setters.setPage(pagination.page - 1)}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">上一页</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  {/* 页码按钮 */}
+                  {(() => {
+                    const getPageNumbers = () => {
+                      const delta = 2;
+                      const range = [];
+                      const rangeWithDots = [];
+                      let l;
+
+                      for (let i = Math.max(1, pagination.page - delta); 
+                           i <= Math.min(pagination.pages, pagination.page + delta); 
+                           i++) {
+                        range.push(i);
+                      }
+
+                      if (range[0] > 1) {
+                        if (range[0] > 2) {
+                          rangeWithDots.push(1, '...');
+                        } else {
+                          rangeWithDots.push(1);
+                        }
+                      }
+
+                      rangeWithDots.push(...range);
+
+                      if (range[range.length - 1] < pagination.pages) {
+                        if (range[range.length - 1] < pagination.pages - 1) {
+                          rangeWithDots.push('...', pagination.pages);
+                        } else {
+                          rangeWithDots.push(pagination.pages);
+                        }
+                      }
+
+                      return rangeWithDots;
+                    };
+
+                    return getPageNumbers().map((page, index) => {
+                      if (page === '...') {
+                        return (
+                          <span
+                            key={`ellipsis-${index}`}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      
+                      const isCurrentPage = page === pagination.page;
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setters.setPage(page as number)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            isCurrentPage
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    });
+                  })()}
+                  
+                  {/* 下一页 */}
+                  <button
+                    disabled={pagination.page >= pagination.pages}
+                    onClick={() => setters.setPage(pagination.page + 1)}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">下一页</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
               </div>
             </div>
           </div>
@@ -1349,9 +1566,8 @@ function InfluencersList() {
             contentLanguage: editingInfluencer.contentLanguage || '',
             
             // 商业合作
-            cooperationOpenness: editingInfluencer.cooperationOpenness || 'unknown',
-            baseCooperationFee: editingInfluencer.baseCooperationFee || 0,
-            cooperationCurrency: editingInfluencer.cooperationCurrency || 'USD',
+    
+                    // 已移除不存在字段的赋值
             
             // 质量评估
             qualityScore: editingInfluencer.qualityScore || 0,
@@ -1367,129 +1583,18 @@ function InfluencersList() {
 
       {/* 批量操作模态框 */}
       {isBatchOperationsOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              onClick={() => setIsBatchOperationsOpen(false)}
-            />
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              <div className="bg-white px-6 pt-6 pb-4">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center">
-                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 sm:mx-0 sm:h-10 sm:w-10">
-                      <UserCheck className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        批量操作
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        已选择 {selectedInfluencers.length} 个达人
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    onClick={() => setIsBatchOperationsOpen(false)}
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="px-6 pb-6">
-                {/* 导出导入区域 */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">数据导入导出</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      onClick={() => handleBatchExport('csv')}
-                      disabled={batchOperationLoading}
-                      className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      导出CSV
-                    </button>
-                    
-                    <button
-                      onClick={() => handleBatchExport('json')}
-                      disabled={batchOperationLoading}
-                      className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      导出JSON
-                    </button>
-                    
-                    <div>
-                      <input
-                        type="file"
-                        accept=".csv,.json"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleBatchImport(file);
-                          }
-                        }}
-                        className="hidden"
-                        id="batch-import-file"
-                      />
-                      <label
-                        htmlFor="batch-import-file"
-                        className="flex items-center justify-center px-4 py-3 border border-blue-300 rounded-md shadow-sm bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 cursor-pointer disabled:opacity-50 w-full"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        批量导入
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 状态操作区域 */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">状态管理</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleBatchUpdateStatus('ACTIVE')}
-                      disabled={batchOperationLoading}
-                      className="flex items-center justify-center px-4 py-3 border border-green-300 rounded-md shadow-sm bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      设为活跃
-                    </button>
-                    
-                    <button
-                      onClick={() => handleBatchUpdateStatus('INACTIVE')}
-                      disabled={batchOperationLoading}
-                      className="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      设为不活跃
-                    </button>
-                  </div>
-                </div>
-
-                {/* 危险操作区域 */}
-                <div>
-                  <h4 className="text-sm font-medium text-red-800 mb-4">危险操作</h4>
-                  <button
-                    onClick={handleBatchDelete}
-                    disabled={batchOperationLoading}
-                    className="w-full flex items-center justify-center px-4 py-3 border border-red-300 rounded-md shadow-sm bg-red-50 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                  >
-                    {batchOperationLoading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 mr-2" />
-                    )}
-                    批量删除
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <BatchOperations
+          selectedInfluencers={selectedInfluencers}
+          influencers={influencers}
+          tags={availableTags}
+          onClose={() => setIsBatchOperationsOpen(false)}
+          onAddTags={handleBatchAddTags}
+          onRemoveTags={handleBatchRemoveTags}
+          onDelete={handleBatchDelete}
+          onExport={handleBatchExport}
+          onImport={handleBatchImport}
+          loading={batchOperationLoading}
+        />
       )}
 
       {/* 删除确认对话框 */}
@@ -1533,6 +1638,103 @@ function InfluencersList() {
                 >
                   取消
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 快捷标签选择模态框 */}
+      {showQuickTagModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => {
+                setShowQuickTagModal(false);
+                setQuickTagInfluencer(null);
+              }}
+            />
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      快捷添加标签
+                    </h3>
+                                         <div className="mt-4">
+                       {(() => {
+                         const currentInfluencer = influencers.find(i => i.id === quickTagInfluencer);
+                         const currentTagIds = new Set(currentInfluencer?.tags?.map(t => t.id) || []);
+                         const availableTagsToAdd = availableTags.filter(tag => !currentTagIds.has(tag.id));
+                         
+                         return (
+                           <div className="space-y-4">
+                             <div className="text-sm text-gray-600">
+                               为 <span className="font-medium">{currentInfluencer?.displayName}</span> 选择要添加的标签：
+                             </div>
+                             
+                             {availableTagsToAdd.length === 0 ? (
+                               <div className="text-sm text-gray-500 text-center py-4">
+                                 该达人已拥有所有可用标签
+                               </div>
+                             ) : (
+                               <div className="max-h-64 overflow-y-auto space-y-2">
+                                 {availableTagsToAdd.map(tag => (
+                                   <label key={tag.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                     <input
+                                       type="checkbox"
+                                       checked={selectedQuickTags.includes(tag.id)}
+                                       onChange={() => handleQuickTagToggle(tag.id)}
+                                       className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-offset-0 focus:ring-blue-200 focus:ring-opacity-50"
+                                     />
+                                     <span
+                                       className="inline-flex px-2 py-1 text-xs font-medium rounded-full"
+                                       style={{ 
+                                         backgroundColor: `${tag.color}20`,
+                                         color: tag.color,
+                                         border: `1px solid ${tag.color}40`
+                                       }}
+                                     >
+                                       {tag.displayName}
+                                     </span>
+                                   </label>
+                                 ))}
+                               </div>
+                             )}
+                             
+                             <div className="flex justify-end space-x-3 pt-4">
+                               <button
+                                 type="button"
+                                 onClick={() => {
+                                   setShowQuickTagModal(false);
+                                   setQuickTagInfluencer(null);
+                                   setSelectedQuickTags([]);
+                                 }}
+                                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                               >
+                                 取消
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={handleQuickTagSubmit}
+                                 disabled={selectedQuickTags.length === 0}
+                                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                 添加标签 ({selectedQuickTags.length})
+                               </button>
+                             </div>
+                           </div>
+                         );
+                       })()}
+                     </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
