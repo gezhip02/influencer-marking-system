@@ -263,9 +263,9 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
         color: 'bg-green-100 text-green-800', 
         text: '已收样' 
       },
-      [FulfillmentStatus.CONTENT_PLANNING]: { 
+      [FulfillmentStatus.CONTENT_CREATION]: { 
         color: isOverdue ? 'bg-red-100 text-red-800' : 'bg-cyan-100 text-cyan-800', 
-        text: '策划中' 
+        text: '内容制作' 
       },
       [FulfillmentStatus.CONTENT_PRODUCTION]: { 
         color: isOverdue ? 'bg-red-100 text-red-800' : 'bg-purple-100 text-purple-800', 
@@ -313,7 +313,7 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
       }
     };
 
-    const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', text: '未知状态' };
+    const config = statusConfig[status as keyof typeof statusConfig] || { color: 'bg-gray-100 text-gray-800', text: '未知状态' };
     
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
@@ -368,7 +368,9 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
   const handleBatchDelete = async () => {
     if (selectedRecords.length === 0) return;
     
-    if (!confirm(`确定要删除选中的 ${selectedRecords.length} 个履约单吗？`)) {
+    // 使用自定义确认框而不是browser confirm
+    const confirmed = window.confirm(`确定要删除选中的 ${selectedRecords.length} 个履约单吗？`);
+    if (!confirmed) {
       return;
     }
 

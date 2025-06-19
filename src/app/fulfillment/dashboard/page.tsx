@@ -239,37 +239,37 @@ export default function FulfillmentDashboard() {
             <StatCard
               title="总履约单"
               value={data.summary.total}
-              icon={ChartBarIcon}
+              icon={<ChartBarIcon className="h-6 w-6" />}
               color="blue"
               trend={trendIndicators ? {
-                value: trendIndicators.completedChange,
-                isPositive: parseFloat(trendIndicators.completedChange) >= 0
+                value: parseFloat(trendIndicators.completedChange),
+                label: "vs 上期"
               } : undefined}
             />
             <StatCard
               title="进行中"
               value={data.summary.pending}
-              icon={ClockIcon}
+              icon={<ClockIcon className="h-6 w-6" />}
               color="yellow"
             />
             <StatCard
               title="逾期"
               value={data.summary.overdue}
-              icon={ExclamationTriangleIcon}
+              icon={<ExclamationTriangleIcon className="h-6 w-6" />}
               color="red"
               trend={trendIndicators ? {
-                value: trendIndicators.overdueChange,
-                isPositive: parseFloat(trendIndicators.overdueChange) <= 0
+                value: parseFloat(trendIndicators.overdueChange),
+                label: "vs 上期"
               } : undefined}
             />
             <StatCard
               title="完成率"
               value={`${data.summary.completionRate.toFixed(1)}%`}
-              icon={CheckCircleIcon}
+              icon={<CheckCircleIcon className="h-6 w-6" />}
               color="green"
               trend={trendIndicators ? {
-                value: trendIndicators.roiChange,
-                isPositive: parseFloat(trendIndicators.roiChange) >= 0
+                value: parseFloat(trendIndicators.roiChange),
+                label: "vs 上期"
               } : undefined}
             />
           </div>
@@ -280,8 +280,8 @@ export default function FulfillmentDashboard() {
             <div className="lg:col-span-2">
               <Suspense fallback={<LoadingSpinner />}>
                 <TodoList 
-                  tasks={data.urgentTasks}
-                  onRefresh={handleRefresh}
+                  maxItems={5}
+                  showHeader={true}
                 />
               </Suspense>
             </div>
@@ -290,10 +290,7 @@ export default function FulfillmentDashboard() {
             <div className="space-y-6">
               {/* ROI排行榜 */}
               <Suspense fallback={<LoadingSpinner />}>
-                <ROIRanking 
-                  performers={data.topPerformers}
-                  trends={data.trends}
-                />
+                <ROIRanking />
               </Suspense>
 
               {/* 快速操作 */}

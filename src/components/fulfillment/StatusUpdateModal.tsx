@@ -57,17 +57,17 @@ const STATUS_TRANSITIONS: Record<FulfillmentStatus, StatusTransitionInfo> = {
     requiresNote: false,
     estimatedHours: 120 // T+5 = 5*24小时
   },
-  [FulfillmentStatus.CONTENT_PLANNING]: {
-    status: FulfillmentStatus.CONTENT_PLANNING,
-    label: '内容策划中',
-    description: '达人正在策划内容创作方案',
+  [FulfillmentStatus.CONTENT_CREATION]: {
+    status: FulfillmentStatus.CONTENT_CREATION,
+    label: '内容制作',
+    description: '发送制作指南，T+1完成（有寄样）/ 创建任务，发送制作指南，T+1（无寄样）',
     requiresNote: false,
-    estimatedHours: 48
+    estimatedHours: 24
   },
   [FulfillmentStatus.CONTENT_PRODUCTION]: {
     status: FulfillmentStatus.CONTENT_PRODUCTION,
-    label: '内容制作',
-    description: '发送制作指南，T+1完成（有寄样）/ 创建任务，发送制作指南，T+1（无寄样）',
+    label: '内容制作中',
+    description: '内容制作进行中',
     requiresNote: false,
     estimatedHours: 24
   },
@@ -175,9 +175,10 @@ export default function StatusUpdateModal({
       case FulfillmentStatus.SAMPLE_SENT:
         return [FulfillmentStatus.SAMPLE_RECEIVED, FulfillmentStatus.CANCELLED];
       case FulfillmentStatus.SAMPLE_RECEIVED:
-        return [FulfillmentStatus.CONTENT_PRODUCTION, FulfillmentStatus.CANCELLED];
+        return [FulfillmentStatus.CONTENT_CREATION, FulfillmentStatus.CANCELLED];
       
       // 无寄样流程: 内容制作 → 已发布 → 销售转化
+      case FulfillmentStatus.CONTENT_CREATION:
       case FulfillmentStatus.CONTENT_PRODUCTION:
         return [FulfillmentStatus.CONTENT_PUBLISHED, FulfillmentStatus.CANCELLED];
       case FulfillmentStatus.CONTENT_PUBLISHED:
@@ -221,8 +222,7 @@ export default function StatusUpdateModal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          toStatus: selectedStatus,
-          changeReason: 'manual_update',
+          currentStatus: selectedStatus,
           remarks: note.trim() || undefined,
           operatorId: 'current_user',
           forceTransition: forceUpdate

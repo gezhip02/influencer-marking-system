@@ -1,10 +1,10 @@
 // 履约状态枚举
 export enum FulfillmentStatus {
   PENDING_SAMPLE = 'pending_sample',           // 待寄样
-  SAMPLE_SENT = 'sample_sent',                 // 样品已寄出
+  SAMPLE_SENT = 'sample_sent',                 // 样品已寄出  
   SAMPLE_RECEIVED = 'sample_received',         // 样品已收到
-  CONTENT_PLANNING = 'content_planning',       // 内容策划中
-  CONTENT_PRODUCTION = 'content_production',   // 内容制作中
+  CONTENT_CREATION = 'content_creation',       // 内容制作（统一使用这个，与数据库一致）
+  CONTENT_PRODUCTION = 'content_production',   // 内容制作中（保留向后兼容）
   CONTENT_REVIEW = 'content_review',           // 内容审核中
   CONTENT_APPROVED = 'content_approved',       // 内容已通过
   CONTENT_REJECTED = 'content_rejected',       // 内容被拒绝
