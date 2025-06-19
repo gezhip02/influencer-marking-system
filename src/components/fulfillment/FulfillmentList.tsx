@@ -133,7 +133,8 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
       }
       
       const data = await response.json();
-      console.log('获取到的履约单数据:', data);
+              console.log('获取到的履约单数据:', data);
+        console.log('原始数据长度:', data.data?.length);
       
       if (data.success && data.data) {
         // 转换API数据为组件需要的格式
@@ -151,6 +152,8 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
           isOverdue: record.isCurrentStageOverdue || false
         }));
 
+        console.log('转换后的数据长度:', transformedRecords.length);
+        console.log('转换后的数据示例:', transformedRecords[0]);
         setRecords(transformedRecords);
         
         // 更新缓存
@@ -365,14 +368,19 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
     return filteredRecords.slice(startIndex, endIndex);
   };
 
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = () => {
     if (selectedRecords.length === 0) return;
     
-    // 使用自定义确认框而不是browser confirm
-    const confirmed = window.confirm(`确定要删除选中的 ${selectedRecords.length} 个履约单吗？`);
-    if (!confirmed) {
-      return;
-    }
+    // 使用自定义确认框，不弹出localhost窗口
+    setDeleteTarget({ 
+      id: 'batch', 
+      title: `${selectedRecords.length} 个履约单` 
+    });
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmBatchDelete = async () => {
+    if (selectedRecords.length === 0) return;
 
     setDeleteLoading(true);
     try {
@@ -392,6 +400,8 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
       // 更新本地状态
       setRecords(prev => prev.filter(record => !selectedRecords.includes(record.id)));
       setSelectedRecords([]);
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
       alert(`成功删除 ${selectedRecords.length} 个履约单`);
     } catch (error) {
       console.error('批量删除失败:', error);
@@ -430,6 +440,12 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
   // 确认删除
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
+    
+    // 处理批量删除
+    if (deleteTarget.id === 'batch') {
+      await handleConfirmBatchDelete();
+      return;
+    }
     
     setDeleteLoading(true);
     try {

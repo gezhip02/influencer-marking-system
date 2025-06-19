@@ -21,10 +21,10 @@ export interface TagData {
   category: string;
   color: string;
   icon?: string;
-  influencerCount: number;
+  influencerCount?: number; // 修改为可选字段
   isSystem: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string | number; // 支持时间戳格式
+  updatedAt?: string | number; // 支持时间戳格式
 }
 
 interface EditTagFormProps {

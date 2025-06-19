@@ -72,7 +72,16 @@ export default function InfluencerSelector({
       const result = await response.json();
       
       if (result.success && result.data) {
-        const influencerList = result.data.items || [];
+        const influencerList = (result.data.items || []).map((influencer: any) => ({
+          ...influencer,
+          // 确保数值字段有默认值，避免null导致的toFixed错误
+          engagementRate: influencer.engagementRate ?? 0,
+          followersCount: influencer.followersCount ?? 0,
+          averageViews: influencer.averageViews ?? 0,
+          averageLikes: influencer.averageLikes ?? 0,
+          recentROI: influencer.recentROI ?? 0,
+          score: influencer.score ?? 0
+        }));
         setInfluencers(influencerList);
       } else {
         setError(result.error || '获取达人数据失败');
@@ -207,7 +216,7 @@ export default function InfluencerSelector({
                     已选择: {selectedInfluencer.displayName}
                   </div>
                   <div className="text-sm text-gray-600">
-                    {formatFollowers(selectedInfluencer.followersCount)} 粉丝 • {selectedInfluencer.engagementRate.toFixed(1)}% 互动率
+                    {formatFollowers(selectedInfluencer.followersCount)} 粉丝 • {selectedInfluencer.engagementRate ? selectedInfluencer.engagementRate.toFixed(1) : '0.0'}% 互动率
                   </div>
                 </div>
               </div>
@@ -296,7 +305,7 @@ export default function InfluencerSelector({
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">互动率:</span>
                   <span className="font-semibold text-green-600">
-                    {influencer.engagementRate.toFixed(1)}%
+                    {influencer.engagementRate ? influencer.engagementRate.toFixed(1) : '0.0'}%
                   </span>
                 </div>
                 
@@ -304,7 +313,7 @@ export default function InfluencerSelector({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">平均ROI:</span>
                     <span className="font-semibold text-blue-600">
-                      {influencer.recentROI.toFixed(1)}%
+                      {influencer.recentROI ? influencer.recentROI.toFixed(1) : '0.0'}%
                     </span>
                   </div>
                 )}
