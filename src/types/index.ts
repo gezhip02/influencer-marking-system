@@ -5,6 +5,17 @@ export interface BaseEntity {
   updatedAt?: number; // 秒级时间戳
 }
 
+// 平台枚举
+export enum PlatformEnum {
+  TIKTOK = 'tiktok',
+  DOUYIN = 'douyin',
+  KUAISHOU = 'kuaishou',
+  WEIXIN_CHANNELS = 'weixin_channels',
+  XIAOHONGSHU = 'xiaohongshu',
+  BILIBILI = 'bilibili',
+  WEIBO = 'weibo'
+}
+
 // 用户相关类型
 export interface User extends BaseEntity {
   email: string;

@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   MagnifyingGlassIcon,
   FunnelIcon,
   PlusIcon,
-  EyeIcon,
+  EllipsisVerticalIcon,
   PencilIcon,
   TrashIcon,
+  EyeIcon,
+  CheckIcon,
+  XMarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
@@ -64,6 +68,9 @@ const PRIORITY_OPTIONS = [
 ];
 
 export default function FulfillmentList({ className = "" }: FulfillmentListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [records, setRecords] = useState<FulfillmentRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<FulfillmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +100,24 @@ export default function FulfillmentList({ className = "" }: FulfillmentListProps
   const [dataCache, setDataCache] = useState<Map<string, any>>(new Map());
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const CACHE_DURATION = 60000; // 1分钟缓存
+
+  // 检查URL参数并刷新
+  useEffect(() => {
+    const refreshParam = searchParams.get('refresh');
+    if (refreshParam === 'true') {
+      // 清除缓存并强制刷新
+      setDataCache(new Map());
+      setLastFetchTime(0);
+      fetchRecords(false); // 强制不使用缓存
+      
+      // 清除URL参数
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete('refresh');
+      router.replace(`/fulfillment${newParams.toString() ? '?' + newParams.toString() : ''}`);
+    } else {
+      fetchRecords();
+    }
+  }, [searchParams]);
 
   // 初始化数据获取
   useEffect(() => {

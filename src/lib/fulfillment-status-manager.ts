@@ -30,11 +30,11 @@ export class FulfillmentStatusManager {
       FulfillmentStatus.EXPIRED
     ],
     [FulfillmentStatus.SAMPLE_RECEIVED]: [
-      FulfillmentStatus.CONTENT_PLANNING,
+      FulfillmentStatus.CONTENT_CREATION,
       FulfillmentStatus.CANCELLED
     ],
-    [FulfillmentStatus.CONTENT_PLANNING]: [
-      FulfillmentStatus.CONTENT_PRODUCTION,
+    [FulfillmentStatus.CONTENT_CREATION]: [
+      FulfillmentStatus.CONTENT_PUBLISHED,
       FulfillmentStatus.CANCELLED
     ],
     [FulfillmentStatus.CONTENT_PRODUCTION]: [
@@ -55,7 +55,12 @@ export class FulfillmentStatusManager {
       FulfillmentStatus.CANCELLED
     ],
     [FulfillmentStatus.CONTENT_PUBLISHED]: [
+      FulfillmentStatus.SALES_CONVERSION,
       FulfillmentStatus.TRACKING_STARTED
+    ],
+    [FulfillmentStatus.SALES_CONVERSION]: [
+      FulfillmentStatus.FINISHED,
+      FulfillmentStatus.CANCELLED
     ],
     [FulfillmentStatus.TRACKING_STARTED]: [
       FulfillmentStatus.TRACKING_COMPLETED
@@ -66,6 +71,7 @@ export class FulfillmentStatusManager {
     [FulfillmentStatus.SETTLEMENT_PENDING]: [
       FulfillmentStatus.SETTLEMENT_COMPLETED
     ],
+    [FulfillmentStatus.FINISHED]: [],
     [FulfillmentStatus.SETTLEMENT_COMPLETED]: [],
     [FulfillmentStatus.CANCELLED]: [],
     [FulfillmentStatus.EXPIRED]: []
@@ -78,7 +84,7 @@ export class FulfillmentStatusManager {
     [FulfillmentStatus.PENDING_SAMPLE]: { standard: 24, warning: 20, max: 48 },
     [FulfillmentStatus.SAMPLE_SENT]: { standard: 72, warning: 60, max: 120 },
     [FulfillmentStatus.SAMPLE_RECEIVED]: { standard: 12, warning: 10, max: 24 },
-    [FulfillmentStatus.CONTENT_PLANNING]: { standard: 48, warning: 40, max: 72 },
+    [FulfillmentStatus.CONTENT_CREATION]: { standard: 168, warning: 140, max: 240 },
     [FulfillmentStatus.CONTENT_PRODUCTION]: { standard: 120, warning: 100, max: 168 },
     [FulfillmentStatus.CONTENT_REVIEW]: { standard: 24, warning: 20, max: 48 },
     [FulfillmentStatus.CONTENT_APPROVED]: { standard: 12, warning: 10, max: 24 },
@@ -89,7 +95,9 @@ export class FulfillmentStatusManager {
     [FulfillmentStatus.SETTLEMENT_PENDING]: { standard: 72, warning: 60, max: 120 },
     [FulfillmentStatus.SETTLEMENT_COMPLETED]: { standard: 0, warning: 0, max: 0 },
     [FulfillmentStatus.CANCELLED]: { standard: 0, warning: 0, max: 0 },
-    [FulfillmentStatus.EXPIRED]: { standard: 0, warning: 0, max: 0 }
+    [FulfillmentStatus.EXPIRED]: { standard: 0, warning: 0, max: 0 },
+    [FulfillmentStatus.SALES_CONVERSION]: { standard: 168, warning: 140, max: 240 },
+    [FulfillmentStatus.FINISHED]: { standard: 0, warning: 0, max: 0 }
   };
 
   /**
@@ -274,6 +282,7 @@ export class FulfillmentStatusManager {
   public static isFinalStatus(status: FulfillmentStatus): boolean {
     const finalStatuses = [
       FulfillmentStatus.SETTLEMENT_COMPLETED,
+      FulfillmentStatus.FINISHED,
       FulfillmentStatus.CANCELLED,
       FulfillmentStatus.EXPIRED
     ];
@@ -288,7 +297,7 @@ export class FulfillmentStatusManager {
       [FulfillmentStatus.PENDING_SAMPLE]: '待寄样',
       [FulfillmentStatus.SAMPLE_SENT]: '样品已寄出',
       [FulfillmentStatus.SAMPLE_RECEIVED]: '样品已收到',
-      [FulfillmentStatus.CONTENT_PLANNING]: '内容策划中',
+      [FulfillmentStatus.CONTENT_CREATION]: '内容创作中',
       [FulfillmentStatus.CONTENT_PRODUCTION]: '内容制作中',
       [FulfillmentStatus.CONTENT_REVIEW]: '内容审核中',
       [FulfillmentStatus.CONTENT_APPROVED]: '内容已通过',
@@ -298,6 +307,8 @@ export class FulfillmentStatusManager {
       [FulfillmentStatus.TRACKING_COMPLETED]: '数据跟踪完成',
       [FulfillmentStatus.SETTLEMENT_PENDING]: '待结算',
       [FulfillmentStatus.SETTLEMENT_COMPLETED]: '结算完成',
+      [FulfillmentStatus.SALES_CONVERSION]: '销售转化中',
+      [FulfillmentStatus.FINISHED]: '已完成',
       [FulfillmentStatus.CANCELLED]: '已取消',
       [FulfillmentStatus.EXPIRED]: '已过期'
     };

@@ -9,10 +9,12 @@ export enum FulfillmentStatus {
   CONTENT_APPROVED = 'content_approved',       // 内容已通过
   CONTENT_REJECTED = 'content_rejected',       // 内容被拒绝
   CONTENT_PUBLISHED = 'content_published',     // 内容已发布
+  SALES_CONVERSION = 'sales_conversion',       // 销售转化
   TRACKING_STARTED = 'tracking_started',       // 开始数据跟踪
   TRACKING_COMPLETED = 'tracking_completed',   // 数据跟踪完成
   SETTLEMENT_PENDING = 'settlement_pending',   // 待结算
   SETTLEMENT_COMPLETED = 'settlement_completed', // 结算完成
+  FINISHED = 'finished',                       // 已完成
   CANCELLED = 'cancelled',                     // 已取消
   EXPIRED = 'expired'                          // 已过期
 }

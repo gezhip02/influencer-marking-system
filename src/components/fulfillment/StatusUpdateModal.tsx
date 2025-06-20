@@ -121,6 +121,19 @@ const STATUS_TRANSITIONS: Record<FulfillmentStatus, StatusTransitionInfo> = {
     requiresNote: false,
     estimatedHours: 72
   },
+  [FulfillmentStatus.SALES_CONVERSION]: {
+    status: FulfillmentStatus.SALES_CONVERSION,
+    label: '销售转化',
+    description: '计算adsRoi，人工打标签，T+7完成',
+    requiresNote: false,
+    estimatedHours: 168
+  },
+  [FulfillmentStatus.FINISHED]: {
+    status: FulfillmentStatus.FINISHED,
+    label: '已完成',
+    description: '履约单已完成，无时效限制',
+    requiresNote: false
+  },
   [FulfillmentStatus.SETTLEMENT_COMPLETED]: {
     status: FulfillmentStatus.SETTLEMENT_COMPLETED,
     label: '结算完成',
@@ -169,7 +182,7 @@ export default function StatusUpdateModal({
     
     // 根据用户提供的新流程图定义状态转换逻辑
     switch (current) {
-      // 有寄样流程: 待寄样 → 已寄样 → 已签收 → 内容制作 → 已发布 → 销售转化
+      // 有寄样流程: pending_sample → sample_sent → sample_received → content_creation → content_published → sales_conversion → finished
       case FulfillmentStatus.PENDING_SAMPLE:
         return [FulfillmentStatus.SAMPLE_SENT, FulfillmentStatus.CANCELLED];
       case FulfillmentStatus.SAMPLE_SENT:
@@ -177,16 +190,17 @@ export default function StatusUpdateModal({
       case FulfillmentStatus.SAMPLE_RECEIVED:
         return [FulfillmentStatus.CONTENT_CREATION, FulfillmentStatus.CANCELLED];
       
-      // 无寄样流程: 内容制作 → 已发布 → 销售转化
+      // 无寄样流程: content_creation → content_published → sales_conversion → finished
       case FulfillmentStatus.CONTENT_CREATION:
       case FulfillmentStatus.CONTENT_PRODUCTION:
         return [FulfillmentStatus.CONTENT_PUBLISHED, FulfillmentStatus.CANCELLED];
       case FulfillmentStatus.CONTENT_PUBLISHED:
-        return [FulfillmentStatus.TRACKING_STARTED, FulfillmentStatus.CANCELLED];
-      case FulfillmentStatus.TRACKING_STARTED:
-        return [FulfillmentStatus.SETTLEMENT_COMPLETED, FulfillmentStatus.CANCELLED];
+        return [FulfillmentStatus.SALES_CONVERSION, FulfillmentStatus.CANCELLED];
+      case FulfillmentStatus.SALES_CONVERSION:
+        return [FulfillmentStatus.FINISHED, FulfillmentStatus.CANCELLED];
       
       // 完成状态
+      case FulfillmentStatus.FINISHED:
       case FulfillmentStatus.SETTLEMENT_COMPLETED:
         return []; // 已完成，无法再转换
       
@@ -224,7 +238,7 @@ export default function StatusUpdateModal({
         body: JSON.stringify({
           currentStatus: selectedStatus,
           remarks: note.trim() || undefined,
-          operatorId: 'current_user',
+          operatorId: '1001',
           forceTransition: forceUpdate
         }),
       });

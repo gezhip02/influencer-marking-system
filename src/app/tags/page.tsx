@@ -20,8 +20,10 @@ interface TagData {
   icon?: string;
   influencerCount?: number;  // 可选字段，如果API没有返回则默认为0
   isSystem: boolean;
-  createdAt?: string | number;  // 可能是时间戳
-  updatedAt?: string | number;  // 可能是时间戳
+  // createdAt?: string | number;  // 可能是时间戳
+  // updatedAt?: string | number;  // 可能是时间戳
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface Stats {

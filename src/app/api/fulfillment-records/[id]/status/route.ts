@@ -7,6 +7,7 @@ import {
 } from '@/types/fulfillment';
 import prisma from '@/lib/prisma';
 import { serializeBigInt } from '@/lib/bigint-serializer';
+import { generateId } from '@/lib/snowflake';
 
 // PUT /api/fulfillment-records/[id]/status - 更新履约单状态
 export async function PUT(
@@ -59,18 +60,18 @@ export async function PUT(
     // 创建状态变更日志
     await prisma.fulfillmentStatusLog.create({
       data: {
-        id: BigInt(Date.now() * 1000 + Math.floor(Math.random() * 1000)), // 简单的ID生成
+        id: generateId(), // 使用雪花算法生成ID
         fulfillmentRecordId: recordId,
         fromStatus: existingRecord.currentStatus,
         toStatus: body.currentStatus,
         stageStartTime: currentTime,
         stageEndTime: currentTime,
-                 stageDeadline: currentTime + 24 * 3600,
+        stageDeadline: currentTime + 24 * 3600,
         actualDurationHours: 0,
         isOverdue: false,
         changeReason: 'manual_update',
         remarks: body.remarks || '',
-        operatorId: body.operatorId || '1001',
+        operatorId: body.operatorId ? BigInt(body.operatorId) : BigInt('1001'),
         status: 1,
         createdAt: currentTime
       }

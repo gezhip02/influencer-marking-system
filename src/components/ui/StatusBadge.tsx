@@ -28,15 +28,15 @@ const STATUS_CONFIG = {
     dotColor: 'bg-blue-400'
   },
   [FulfillmentStatus.SAMPLE_RECEIVED]: {
-    label: '已收样',
+    label: '已签收',
     color: 'green',
     bgColor: 'bg-green-100',
     textColor: 'text-green-800',
     borderColor: 'border-green-200',
     dotColor: 'bg-green-400'
   },
-  [FulfillmentStatus.CONTENT_PLANNING]: {
-    label: '内容策划中',
+  [FulfillmentStatus.CONTENT_CREATION]: {
+    label: '内容制作',
     color: 'purple',
     bgColor: 'bg-purple-100',
     textColor: 'text-purple-800',
@@ -50,6 +50,22 @@ const STATUS_CONFIG = {
     textColor: 'text-orange-800',
     borderColor: 'border-orange-200',
     dotColor: 'bg-orange-400'
+  },
+  [FulfillmentStatus.SALES_CONVERSION]: {
+    label: '销售转化',
+    color: 'amber',
+    bgColor: 'bg-amber-100',
+    textColor: 'text-amber-800',
+    borderColor: 'border-amber-200',
+    dotColor: 'bg-amber-400'
+  },
+  [FulfillmentStatus.FINISHED]: {
+    label: '已完成',
+    color: 'green',
+    bgColor: 'bg-green-100',
+    textColor: 'text-green-800',
+    borderColor: 'border-green-200',
+    dotColor: 'bg-green-400'
   },
   [FulfillmentStatus.CONTENT_REVIEW]: {
     label: '内容审核中',
@@ -75,13 +91,21 @@ const STATUS_CONFIG = {
     borderColor: 'border-red-200',
     dotColor: 'bg-red-400'
   },
-  [FulfillmentStatus.CONTENT_PUBLISHED]: {
-    label: '已发布',
+  [FulfillmentStatus.TRACKING_COMPLETED]: {
+    label: '跟踪完成',
     color: 'teal',
     bgColor: 'bg-teal-100',
     textColor: 'text-teal-800',
     borderColor: 'border-teal-200',
     dotColor: 'bg-teal-400'
+  },
+  [FulfillmentStatus.SETTLEMENT_PENDING]: {
+    label: '待结算',
+    color: 'yellow',
+    bgColor: 'bg-yellow-100',
+    textColor: 'text-yellow-800',
+    borderColor: 'border-yellow-200',
+    dotColor: 'bg-yellow-400'
   },
   [FulfillmentStatus.TRACKING_STARTED]: {
     label: '数据跟踪中',
@@ -91,29 +115,21 @@ const STATUS_CONFIG = {
     borderColor: 'border-pink-200',
     dotColor: 'bg-pink-400'
   },
-  [FulfillmentStatus.TRACKING_COMPLETED]: {
-    label: '跟踪完成',
+  [FulfillmentStatus.SETTLEMENT_COMPLETED]: {
+    label: '结算完成',
     color: 'cyan',
     bgColor: 'bg-cyan-100',
     textColor: 'text-cyan-800',
     borderColor: 'border-cyan-200',
     dotColor: 'bg-cyan-400'
   },
-  [FulfillmentStatus.SETTLEMENT_PENDING]: {
-    label: '待结算',
-    color: 'amber',
-    bgColor: 'bg-amber-100',
-    textColor: 'text-amber-800',
-    borderColor: 'border-amber-200',
-    dotColor: 'bg-amber-400'
-  },
-  [FulfillmentStatus.SETTLEMENT_COMPLETED]: {
-    label: '结算完成',
-    color: 'green',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-800',
-    borderColor: 'border-green-200',
-    dotColor: 'bg-green-400'
+  [FulfillmentStatus.CONTENT_PUBLISHED]: {
+    label: '已发布',
+    color: 'teal',
+    bgColor: 'bg-teal-100',
+    textColor: 'text-teal-800',
+    borderColor: 'border-teal-200',
+    dotColor: 'bg-teal-400'
   },
   [FulfillmentStatus.CANCELLED]: {
     label: '已取消',

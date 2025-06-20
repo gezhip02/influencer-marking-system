@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { 
   ChartBarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   CurrencyDollarIcon,
   EyeIcon,
   HeartIcon,
@@ -87,9 +87,9 @@ export default function ROIAnalytics({
 
   const getTrendIcon = (trend: number) => {
     if (trend > 0) {
-      return <TrendingUpIcon className="w-4 h-4 text-green-500" />;
+      return <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />;
     } else if (trend < 0) {
-      return <TrendingDownIcon className="w-4 h-4 text-red-500" />;
+      return <ArrowTrendingDownIcon className="w-4 h-4 text-red-500" />;
     }
     return null;
   };

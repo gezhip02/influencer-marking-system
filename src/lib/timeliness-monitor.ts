@@ -103,10 +103,10 @@ export class TimelinessMonitor {
           avgHours: 9.8,
           overdueCount: 0
         },
-        [FulfillmentStatus.CONTENT_PLANNING]: {
-          count: 15,
-          avgHours: 42.3,
-          overdueCount: 1
+        [FulfillmentStatus.CONTENT_CREATION]: {
+          count: 25,
+          avgHours: 78.5,
+          overdueCount: 5
         },
         [FulfillmentStatus.CONTENT_PRODUCTION]: {
           count: 32,
@@ -133,6 +133,11 @@ export class TimelinessMonitor {
           avgHours: 0.8,
           overdueCount: 0
         },
+        [FulfillmentStatus.SALES_CONVERSION]: {
+          count: 12,
+          avgHours: 145.3,
+          overdueCount: 3
+        },
         [FulfillmentStatus.TRACKING_STARTED]: {
           count: 8,
           avgHours: 156.4,
@@ -150,6 +155,11 @@ export class TimelinessMonitor {
         },
         [FulfillmentStatus.SETTLEMENT_COMPLETED]: {
           count: 0,
+          avgHours: 0,
+          overdueCount: 0
+        },
+        [FulfillmentStatus.FINISHED]: {
+          count: 8,
           avgHours: 0,
           overdueCount: 0
         },
@@ -382,16 +392,18 @@ export class TimelinessMonitor {
       [FulfillmentStatus.PENDING_SAMPLE]: '待寄样',
       [FulfillmentStatus.SAMPLE_SENT]: '样品已寄出',
       [FulfillmentStatus.SAMPLE_RECEIVED]: '样品已收到',
-      [FulfillmentStatus.CONTENT_PLANNING]: '内容策划中',
+      [FulfillmentStatus.CONTENT_CREATION]: '内容创作中',
       [FulfillmentStatus.CONTENT_PRODUCTION]: '内容制作中',
       [FulfillmentStatus.CONTENT_REVIEW]: '内容审核中',
       [FulfillmentStatus.CONTENT_APPROVED]: '内容已通过',
       [FulfillmentStatus.CONTENT_REJECTED]: '内容被拒绝',
       [FulfillmentStatus.CONTENT_PUBLISHED]: '内容已发布',
+      [FulfillmentStatus.SALES_CONVERSION]: '销售转化中',
       [FulfillmentStatus.TRACKING_STARTED]: '开始数据跟踪',
       [FulfillmentStatus.TRACKING_COMPLETED]: '数据跟踪完成',
       [FulfillmentStatus.SETTLEMENT_PENDING]: '待结算',
       [FulfillmentStatus.SETTLEMENT_COMPLETED]: '结算完成',
+      [FulfillmentStatus.FINISHED]: '已完成',
       [FulfillmentStatus.CANCELLED]: '已取消',
       [FulfillmentStatus.EXPIRED]: '已过期'
     };

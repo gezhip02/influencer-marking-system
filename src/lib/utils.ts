@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Platform } from "@/types";
+import { PlatformEnum } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -52,29 +52,29 @@ export function formatRelativeTime(date: Date): string {
 }
 
 // 获取平台显示名称
-export function getPlatformName(platform: Platform): string {
-  const platformNames: Record<Platform, string> = {
-    [Platform.TIKTOK]: 'TikTok',
-    [Platform.DOUYIN]: '抖音',
-    [Platform.KUAISHOU]: '快手',
-    [Platform.WEIXIN_CHANNELS]: '视频号',
-    [Platform.XIAOHONGSHU]: '小红书',
-    [Platform.BILIBILI]: 'B站',
-    [Platform.WEIBO]: '微博'
+export function getPlatformName(platform: PlatformEnum): string {
+  const platformNames: Record<PlatformEnum, string> = {
+    [PlatformEnum.TIKTOK]: 'TikTok',
+    [PlatformEnum.DOUYIN]: '抖音',
+    [PlatformEnum.KUAISHOU]: '快手',
+    [PlatformEnum.WEIXIN_CHANNELS]: '视频号',
+    [PlatformEnum.XIAOHONGSHU]: '小红书',
+    [PlatformEnum.BILIBILI]: 'B站',
+    [PlatformEnum.WEIBO]: '微博'
   };
   return platformNames[platform];
 }
 
 // 获取平台颜色
-export function getPlatformColor(platform: Platform): string {
-  const platformColors: Record<Platform, string> = {
-    [Platform.TIKTOK]: 'bg-black',
-    [Platform.DOUYIN]: 'bg-red-500',
-    [Platform.KUAISHOU]: 'bg-orange-500',
-    [Platform.WEIXIN_CHANNELS]: 'bg-green-500',
-    [Platform.XIAOHONGSHU]: 'bg-pink-500',
-    [Platform.BILIBILI]: 'bg-blue-500',
-    [Platform.WEIBO]: 'bg-yellow-500'
+export function getPlatformColor(platform: PlatformEnum): string {
+  const platformColors: Record<PlatformEnum, string> = {
+    [PlatformEnum.TIKTOK]: 'bg-black',
+    [PlatformEnum.DOUYIN]: 'bg-red-500',
+    [PlatformEnum.KUAISHOU]: 'bg-orange-500',
+    [PlatformEnum.WEIXIN_CHANNELS]: 'bg-green-500',
+    [PlatformEnum.XIAOHONGSHU]: 'bg-pink-500',
+    [PlatformEnum.BILIBILI]: 'bg-blue-500',
+    [PlatformEnum.WEIBO]: 'bg-yellow-500'
   };
   return platformColors[platform];
 }

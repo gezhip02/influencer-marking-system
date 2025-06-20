@@ -101,8 +101,9 @@ export default function CreateFulfillmentPage() {
       if (result.success) {
         console.log('履约单创建成功:', result.data);
         // 显示成功消息并跳转到履约单列表
-        alert('履约单创建成功！');
-        router.push('/fulfillment');
+        console.log('履约单创建成功！');
+        // 强制刷新页面以确保列表更新
+        router.push('/fulfillment?refresh=true');
       } else {
         throw new Error(result.error || '创建失败');
       }

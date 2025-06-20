@@ -10,7 +10,7 @@ export interface TagData {
   category: string;
   color: string;
   icon?: string;
-  influencerCount: number;
+  influencerCount?: number;
   isSystem: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -42,7 +42,7 @@ export default function DeleteTagDialog({
   };
 
   const canDelete = !tag.isSystem;
-  const hasInfluencers = tag.influencerCount > 0;
+  const hasInfluencers = (tag.influencerCount || 0) > 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -123,7 +123,7 @@ export default function DeleteTagDialog({
                         </h3>
                         <div className="mt-2 text-sm text-orange-700">
                           <p>
-                            当前有 <span className="font-medium">{tag.influencerCount}</span> 个达人使用了这个标签。
+                            当前有 <span className="font-medium">{tag.influencerCount || 0}</span> 个达人使用了这个标签。
                             删除后，这些达人将失去该标签分类。
                           </p>
                         </div>
