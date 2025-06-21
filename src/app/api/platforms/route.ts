@@ -1,39 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { serializeBigInt } from '@/lib/bigint-serializer';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    // 获取所有活跃的平台
-    const platforms = await prisma.platform.findMany({
-      where: {
-        status: 1
-      },
-      select: {
-        id: true,
-        name: true,
-        displayName: true,
-        status: true,
-        apiEndpoint: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: {
-        displayName: 'asc'
-      }
-    });
+    console.log('🔍 获取平台列表...');
 
-    // 序列化BigInt
-    const serializedPlatforms = serializeBigInt(platforms);
+    // 使用Supabase客户端获取所有活跃的平台
+    const { data: platforms, error } = await supabase
+      .from('platforms')
+      .select('id, name, displayName, status, apiEndpoint, createdAt, updatedAt')
+      .eq('status', 1)
+      .order('displayName', { ascending: true });
+
+    if (error) {
+      console.error('获取平台列表失败:', error);
+      throw error;
+    }
+
+    console.log(`✅ 成功获取 ${platforms?.length || 0} 个平台`);
 
     return NextResponse.json({
       success: true,
-      platforms: serializedPlatforms
+      platforms: platforms || []
     });
+
   } catch (error) {
     console.error('Error fetching platforms:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch platforms', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        success: false,
+        error: 'Failed to fetch platforms', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }
