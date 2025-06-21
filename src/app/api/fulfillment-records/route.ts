@@ -11,6 +11,10 @@ import type {
 // GET /api/fulfillment-records - 获取履约单列表（性能优化版本）
 export async function GET(request: NextRequest) {
   try {
+    // 🔍 调试：查看 Vercel 上实际的 DATABASE_URL 值
+    console.log('🎯 [fulfillment-records] DATABASE_URL =', process.env.DATABASE_URL);
+    console.log('🎯 [fulfillment-records] DATABASE_URL length =', process.env.DATABASE_URL?.length);
+    
     const { searchParams } = new URL(request.url);
     
     // 解析查询参数

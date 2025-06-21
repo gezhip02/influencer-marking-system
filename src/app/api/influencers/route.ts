@@ -5,6 +5,11 @@ import { serializePagination, serializeEntity, prepareForDatabase, timestampUtil
 
 export async function GET(request: NextRequest) {
   try {
+    // 🔍 调试：查看 Vercel 上实际的 DATABASE_URL 值
+    console.log('💡 DATABASE_URL on Vercel =', process.env.DATABASE_URL);
+    console.log('💡 DATABASE_URL length =', process.env.DATABASE_URL?.length);
+    console.log('💡 DATABASE_URL starts with =', process.env.DATABASE_URL?.substring(0, 20));
+    
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
